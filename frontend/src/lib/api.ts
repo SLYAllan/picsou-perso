@@ -114,6 +114,14 @@ export interface GoalRequest {
   accountIds: number[]
 }
 
+export interface GoalMonthEntry {
+  yearMonth: string         // "2025-03"
+  objective: number
+  actual: number | null
+  override: number | null
+  effective: number | null
+}
+
 export interface DashboardData {
   totalNetWorth: number
   netWorthHistory: { date: string; total: number }[]
@@ -154,6 +162,11 @@ export const goalsApi = {
   create: (data: GoalRequest) => api.post<GoalProgress>('/goals', data).then(r => r.data),
   update: (id: number, data: GoalRequest) => api.put<GoalProgress>(`/goals/${id}`, data).then(r => r.data),
   delete: (id: number) => api.delete(`/goals/${id}`),
+  getMonths: (id: number) => api.get<GoalMonthEntry[]>(`/goals/${id}/months`).then(r => r.data),
+  setMonthOverride: (id: number, ym: string, amount: number) =>
+    api.put<GoalMonthEntry>(`/goals/${id}/months/${ym}`, { amount }).then(r => r.data),
+  deleteMonthOverride: (id: number, ym: string) =>
+    api.delete<GoalMonthEntry>(`/goals/${id}/months/${ym}`).then(r => r.data),
 }
 
 // Dashboard

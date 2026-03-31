@@ -46,4 +46,9 @@ public interface BalanceSnapshotRepository extends JpaRepository<BalanceSnapshot
         @Param("accountId") Long accountId,
         @Param("from") LocalDate from
     );
+
+    /** Latest snapshot on or before a given date (for per-month contribution calc) */
+    Optional<BalanceSnapshot> findFirstByAccountIdAndDateLessThanEqualOrderByDateDesc(
+        Long accountId, LocalDate date
+    );
 }

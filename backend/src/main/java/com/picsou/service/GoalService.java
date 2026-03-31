@@ -1,14 +1,17 @@
 package com.picsou.service;
 
 import com.picsou.dto.AccountResponse;
+import com.picsou.dto.GoalMonthEntryResponse;
 import com.picsou.dto.GoalProgressResponse;
 import com.picsou.dto.GoalRequest;
 import com.picsou.exception.ResourceNotFoundException;
 import com.picsou.model.Account;
 import com.picsou.model.BalanceSnapshot;
 import com.picsou.model.Goal;
+import com.picsou.model.GoalMonthOverride;
 import com.picsou.repository.AccountRepository;
 import com.picsou.repository.BalanceSnapshotRepository;
+import com.picsou.repository.GoalMonthOverrideRepository;
 import com.picsou.repository.GoalRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,9 +19,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,17 +36,20 @@ public class GoalService {
     private final AccountRepository accountRepository;
     private final BalanceSnapshotRepository snapshotRepository;
     private final AccountService accountService;
+    private final GoalMonthOverrideRepository overrideRepository;
 
     public GoalService(
         GoalRepository goalRepository,
         AccountRepository accountRepository,
         BalanceSnapshotRepository snapshotRepository,
-        AccountService accountService
+        AccountService accountService,
+        GoalMonthOverrideRepository overrideRepository
     ) {
         this.goalRepository = goalRepository;
         this.accountRepository = accountRepository;
         this.snapshotRepository = snapshotRepository;
         this.accountService = accountService;
+        this.overrideRepository = overrideRepository;
     }
 
     public List<GoalProgressResponse> findAll() {
@@ -167,6 +177,83 @@ public class GoalService {
 
         if (accountsWithData == 0) return null;
         return totalContribution.divide(BigDecimal.valueOf(accountsWithData), 2, RoundingMode.HALF_UP);
+    }
+
+    // ─── Monthly history ──────────────────────────────────────────────────────
+
+    public List<GoalMonthEntryResponse> getMonthlyEntries(Long goalId) {
+        Goal goal = getOrThrow(goalId);
+        BigDecimal objective = toProgressResponse(goal).monthlyNeeded();
+
+        Map<String, BigDecimal> overrideMap = overrideRepository.findByGoalId(goalId).stream()
+            .collect(Collectors.toMap(GoalMonthOverride::getYearMonth, GoalMonthOverride::getAmount));
+
+        YearMonth startMonth = YearMonth.from(
+            goal.getCreatedAt().atZone(ZoneId.systemDefault()).toLocalDate()
+        );
+        YearMonth endMonth = YearMonth.from(goal.getDeadline());
+
+        List<GoalMonthEntryResponse> entries = new ArrayList<>();
+        YearMonth current = startMonth;
+        while (!current.isAfter(endMonth)) {
+            String ym = current.toString();
+            BigDecimal actual = calculateActualForMonth(goal, current);
+            BigDecimal override = overrideMap.get(ym);
+            BigDecimal effective = override != null ? override : actual;
+            entries.add(new GoalMonthEntryResponse(ym, objective, actual, override, effective));
+            current = current.plusMonths(1);
+        }
+        return entries;
+    }
+
+    @Transactional
+    public GoalMonthEntryResponse setMonthOverride(Long goalId, String yearMonth, BigDecimal amount) {
+        Goal goal = getOrThrow(goalId);
+        GoalMonthOverride entry = overrideRepository
+            .findByGoalIdAndYearMonth(goalId, yearMonth)
+            .orElseGet(GoalMonthOverride::new);
+        entry.setGoal(goal);
+        entry.setYearMonth(yearMonth);
+        entry.setAmount(amount);
+        overrideRepository.save(entry);
+
+        BigDecimal objective = toProgressResponse(goal).monthlyNeeded();
+        BigDecimal actual = calculateActualForMonth(goal, YearMonth.parse(yearMonth));
+        return new GoalMonthEntryResponse(yearMonth, objective, actual, amount, amount);
+    }
+
+    @Transactional
+    public GoalMonthEntryResponse deleteMonthOverride(Long goalId, String yearMonth) {
+        overrideRepository.findByGoalIdAndYearMonth(goalId, yearMonth)
+            .ifPresent(overrideRepository::delete);
+        Goal goal = getOrThrow(goalId);
+        BigDecimal objective = toProgressResponse(goal).monthlyNeeded();
+        BigDecimal actual = calculateActualForMonth(goal, YearMonth.parse(yearMonth));
+        return new GoalMonthEntryResponse(yearMonth, objective, actual, null, actual);
+    }
+
+    private BigDecimal calculateActualForMonth(Goal goal, YearMonth ym) {
+        if (ym.isAfter(YearMonth.now())) return null;
+
+        LocalDate prevMonthEnd = ym.minusMonths(1).atEndOfMonth();
+        LocalDate thisMonthEnd = ym.atEndOfMonth();
+
+        BigDecimal total = BigDecimal.ZERO;
+        boolean hasData = false;
+
+        for (Account account : goal.getAccounts()) {
+            Optional<BalanceSnapshot> prev = snapshotRepository
+                .findFirstByAccountIdAndDateLessThanEqualOrderByDateDesc(account.getId(), prevMonthEnd);
+            Optional<BalanceSnapshot> curr = snapshotRepository
+                .findFirstByAccountIdAndDateLessThanEqualOrderByDateDesc(account.getId(), thisMonthEnd);
+
+            if (prev.isPresent() && curr.isPresent()) {
+                total = total.add(curr.get().getBalance().subtract(prev.get().getBalance()));
+                hasData = true;
+            }
+        }
+
+        return hasData ? total.setScale(2, RoundingMode.HALF_UP) : null;
     }
 
     private Goal getOrThrow(Long id) {

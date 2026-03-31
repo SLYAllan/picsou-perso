@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { Plus, Target, TrendingUp, TrendingDown, X, Loader2, Pencil, Clock } from 'lucide-react'
+import { Plus, Target, TrendingUp, TrendingDown, X, Loader2, Pencil, Clock, CalendarDays } from 'lucide-react'
 import { useGoals, useCreateGoal, useDeleteGoal, useUpdateGoal } from '../../hooks/useGoals'
 import { useAccounts } from '../../hooks/useAccounts'
 import { GlassCard, GlowBackground, PageHeader } from '../../components/shared'
 import { formatEur, formatLocalDate } from '../../lib/utils'
 import type { GoalProgress } from '../../lib/api'
+import { GoalCalendarModal } from './GoalCalendarModal'
 
 export function GoalsPage() {
   const { data: goals, isLoading } = useGoals()
@@ -16,6 +17,8 @@ export function GoalsPage() {
 
   const [showForm, setShowForm] = useState(false)
   const [editingGoal, setEditingGoal] = useState<GoalProgress | null>(null)
+  const [calendarGoal, setCalendarGoal] = useState<GoalProgress | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
   const [form, setForm] = useState({
     name: '',
     targetAmount: '',
@@ -148,18 +151,44 @@ export function GoalsPage() {
                           })()}
                           <button
                             onClick={() => openEdit(goal)}
-                            className="text-gray-300 hover:text-gray-600 transition-colors p-1"
+                            className="text-gray-300 hover:text-gray-600 transition-colors p-2 rounded-[8px]"
                           >
                             <Pencil size={13} />
                           </button>
                           <button
-                            onClick={() => { if (confirm('Supprimer cet objectif ?')) deleteGoal.mutate(goal.id) }}
-                            className="text-gray-300 hover:text-red-400 transition-colors p-1"
+                            onClick={() => setCalendarGoal(goal)}
+                            className="text-gray-300 hover:text-violet-500 transition-colors p-2 rounded-[8px]"
                           >
-                            <X size={14} />
+                            <CalendarDays size={13} />
                           </button>
+                          {confirmDeleteId === goal.id ? (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => { deleteGoal.mutate(goal.id); setConfirmDeleteId(null) }}
+                                disabled={deleteGoal.isPending}
+                                className="h-7 px-2 rounded-[8px] bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors disabled:opacity-60"
+                                style={{ fontSize: 11, fontWeight: 600 }}
+                              >
+                                {deleteGoal.isPending ? <Loader2 size={10} className="animate-spin" /> : 'Supprimer'}
+                              </button>
+                              <button
+                                onClick={() => setConfirmDeleteId(null)}
+                                className="h-7 px-2 rounded-[8px] bg-black/[0.04] text-gray-500 hover:bg-black/[0.07] transition-colors"
+                                style={{ fontSize: 11, fontWeight: 500 }}
+                              >
+                                Annuler
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmDeleteId(goal.id)}
+                              className="text-gray-300 hover:text-red-400 transition-colors p-2 rounded-[8px]"
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
                         </div>
-                        <p className="text-gray-400 text-right" style={{ fontSize: 10, fontWeight: 500 }}>
+                        <p className="text-gray-400 text-right max-w-[200px]" style={{ fontSize: 10, fontWeight: 500 }}>
                           {goal.monthlyNeeded <= 0
                             ? `${formatEur(goal.currentTotal)} ≥ objectif ${formatEur(goal.targetAmount)}`
                             : goal.avgMonthlyContribution == null
@@ -242,6 +271,13 @@ export function GoalsPage() {
           )}
         </div>
       )}
+
+      {/* Calendar modal */}
+      <AnimatePresence>
+        {calendarGoal && (
+          <GoalCalendarModal goal={calendarGoal} onClose={() => setCalendarGoal(null)} />
+        )}
+      </AnimatePresence>
 
       {/* Create / Edit modal */}
       <AnimatePresence>

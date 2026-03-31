@@ -1,5 +1,7 @@
 package com.picsou.controller;
 
+import com.picsou.dto.GoalMonthEntryResponse;
+import com.picsou.dto.GoalMonthOverrideRequest;
 import com.picsou.dto.GoalProgressResponse;
 import com.picsou.dto.GoalRequest;
 import com.picsou.service.GoalService;
@@ -44,5 +46,27 @@ public class GoalController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
         goalService.delete(id);
+    }
+
+    @GetMapping("/{id}/months")
+    public List<GoalMonthEntryResponse> getMonthlyEntries(@PathVariable Long id) {
+        return goalService.getMonthlyEntries(id);
+    }
+
+    @PutMapping("/{id}/months/{yearMonth}")
+    public GoalMonthEntryResponse setMonthOverride(
+        @PathVariable Long id,
+        @PathVariable String yearMonth,
+        @Valid @RequestBody GoalMonthOverrideRequest req
+    ) {
+        return goalService.setMonthOverride(id, yearMonth, req.amount());
+    }
+
+    @DeleteMapping("/{id}/months/{yearMonth}")
+    public GoalMonthEntryResponse deleteMonthOverride(
+        @PathVariable Long id,
+        @PathVariable String yearMonth
+    ) {
+        return goalService.deleteMonthOverride(id, yearMonth);
     }
 }
