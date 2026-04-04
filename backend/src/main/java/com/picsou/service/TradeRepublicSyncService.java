@@ -1,13 +1,17 @@
 package com.picsou.service;
 
+import com.picsou.adapter.OpenFigiIsinConverter;
 import com.picsou.dto.AccountResponse;
 import com.picsou.exception.SyncException;
 import com.picsou.model.Account;
+import com.picsou.model.AccountHolding;
 import com.picsou.model.AccountType;
 import com.picsou.model.TradeRepublicSession;
 import com.picsou.port.TradeRepublicPort;
 import com.picsou.port.TradeRepublicPort.TrAccountData;
+import com.picsou.port.TradeRepublicPort.TrPosition;
 import com.picsou.port.TradeRepublicPort.TrTokens;
+import com.picsou.repository.AccountHoldingRepository;
 import com.picsou.repository.AccountRepository;
 import com.picsou.repository.TradeRepublicSessionRepository;
 import org.slf4j.Logger;
@@ -36,18 +40,24 @@ public class TradeRepublicSyncService {
     private final TradeRepublicPort             trPort;
     private final TradeRepublicSessionRepository sessionRepository;
     private final AccountRepository             accountRepository;
+    private final AccountHoldingRepository      holdingRepository;
     private final AccountService                accountService;
+    private final OpenFigiIsinConverter         isinConverter;
 
     public TradeRepublicSyncService(
         TradeRepublicPort trPort,
         TradeRepublicSessionRepository sessionRepository,
         AccountRepository accountRepository,
-        AccountService accountService
+        AccountHoldingRepository holdingRepository,
+        AccountService accountService,
+        OpenFigiIsinConverter isinConverter
     ) {
         this.trPort            = trPort;
         this.sessionRepository = sessionRepository;
         this.accountRepository = accountRepository;
+        this.holdingRepository = holdingRepository;
         this.accountService    = accountService;
+        this.isinConverter     = isinConverter;
     }
 
     // ─── Auth ─────────────────────────────────────────────────────────────────
@@ -269,6 +279,23 @@ public class TradeRepublicSyncService {
 
         account = accountRepository.save(account);
         accountService.upsertSnapshot(account, data.balanceEur(), LocalDate.now());
+
+        if (!data.positions().isEmpty()) {
+            holdingRepository.deleteByAccountId(account.getId());
+            for (TrPosition p : data.positions()) {
+                // Convert ISIN to Yahoo ticker symbol for price lookups
+                String ticker = isinConverter.isinToYahooTicker(p.isin());
+                holdingRepository.save(AccountHolding.builder()
+                    .account(account)
+                    .ticker(ticker)
+                    .quantity(p.quantity())
+                    .averageBuyIn(p.averageBuyIn())
+                    .currentPrice(p.currentPrice())
+                    .lastSyncedAt(Instant.now())
+                    .build());
+            }
+        }
+
         return accountService.toResponse(account);
     }
 

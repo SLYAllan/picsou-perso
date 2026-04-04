@@ -8,7 +8,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -41,7 +45,24 @@ public class YahooFinancePriceProvider implements PriceProviderPort {
 
     @Override
     public boolean supports(String ticker) {
-        return !CRYPTO_TICKERS.contains(ticker.toUpperCase());
+        if (ticker == null || ticker.isBlank()) {
+            return false;
+        }
+        String upper = ticker.toUpperCase();
+
+        // Don't support crypto tickers
+        if (CRYPTO_TICKERS.contains(upper)) {
+            return false;
+        }
+
+        // Don't support plain ISIN codes (12-character alphanumeric starting with 2-letter country code)
+        // ISIN format: AA########X (2 letters, 9 digits, 1 check digit)
+        if (upper.length() == 12 && upper.matches("[A-Z]{2}[A-Z0-9]{9}[A-Z0-9]")) {
+            log.debug("Rejecting unsupported ISIN: {}", ticker);
+            return false;
+        }
+
+        return true;
     }
 
     @Override
@@ -98,8 +119,52 @@ public class YahooFinancePriceProvider implements PriceProviderPort {
     record Chart(List<ChartResult> result) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record ChartResult(Meta meta) {}
+    record ChartResult(Meta meta, List<Long> timestamp, List<Double> close) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     record Meta(double regularMarketPrice, String currency) {}
+
+    /**
+     * Fetch historical daily prices for a single ticker from Yahoo Finance.
+     * Returns a map of date -> priceEur.
+     */
+    public Map<LocalDate, BigDecimal> getHistoricalPricesEur(String ticker, LocalDate from, LocalDate to) {
+        long days = java.time.temporal.ChronoUnit.DAYS.between(from, to) + 1;
+        String range = days <= 7 ? "5d" : days <= 30 ? "1mo" : days <= 90 ? "3mo" : days <= 365 ? "1y" : "5y";
+
+        try {
+            YahooResponse response = webClient.get()
+                .uri("/v8/finance/chart/{ticker}?range={range}&interval=1d", ticker, range)
+                .retrieve()
+                .bodyToMono(YahooResponse.class)
+                .timeout(Duration.ofSeconds(15))
+                .block();
+
+            if (response == null || response.chart() == null || response.chart().result() == null
+                || response.chart().result().isEmpty()) {
+                return Map.of();
+            }
+
+            var result = response.chart().result().get(0);
+            if (result.timestamp() == null || result.close() == null) return Map.of();
+
+            Map<LocalDate, BigDecimal> prices = new HashMap<>();
+            List<Long> timestamps = result.timestamp();
+            List<Double> closes = result.close();
+
+            for (int i = 0; i < timestamps.size() && i < closes.size(); i++) {
+                LocalDate date = Instant.ofEpochSecond(timestamps.get(i))
+                    .atZone(ZoneOffset.UTC).toLocalDate();
+                if (!date.isBefore(from) && !date.isAfter(to) && closes.get(i) > 0) {
+                    prices.put(date, BigDecimal.valueOf(closes.get(i)).setScale(8, RoundingMode.HALF_UP));
+                }
+            }
+
+            log.debug("Fetched {} historical prices for {} from Yahoo", prices.size(), ticker);
+            return prices;
+        } catch (Exception ex) {
+            log.warn("Yahoo historical price fetch failed for {}: {}", ticker, ex.getMessage());
+            return Map.of();
+        }
+    }
 }
