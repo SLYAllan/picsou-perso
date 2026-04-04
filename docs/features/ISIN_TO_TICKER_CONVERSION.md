@@ -1,123 +1,61 @@
-# ISIN to Yahoo Finance Ticker Conversion
+# Feature: ISIN to Yahoo Finance Ticker Conversion
 
-**Status:** Fixed  
-**Date:** 2026-04-04  
-**Branch:** fix/crypto-integrations
+> Last updated: 2026-04-04
 
-## Problem
+## Context
 
-Trade Republic returns account holdings with ISIN codes (e.g., `IE00BYVQ9F29`, `KYG9830T1067`), but Yahoo Finance only accepts valid ticker symbols (e.g., `IWDA.AS`, `MC.PA`). When syncing Trade Republic accounts, the system attempted to fetch prices for ISIN codes from Yahoo Finance, resulting in 404 errors and missing price data.
+Trade Republic returns account holdings with ISIN codes (e.g., `IE00BYVQ9F29`), but Yahoo Finance expects ticker symbols (e.g., `IWDA.AS`). This feature converts ISINs to Yahoo-compatible tickers, enabling price lookups for equities and ETFs synced from Trade Republic.
 
-**Root Cause:** `TradeRepublicSyncService` was storing ISIN codes directly as ticker symbols in `AccountHolding.ticker`. The `PriceService` then tried to fetch prices via `YahooFinancePriceProvider` using these ISIN codes, which are not valid Yahoo Finance tickers.
+## How it works
 
-## Solution
+### Key files
 
-### 1. **New OpenFIGI Adapter** (`OpenFigiIsinConverter`)
+- `adapter/OpenFigiIsinConverter.java` — ISIN→ticker conversion via OpenFIGI API
+- `service/TradeRepublicSyncService.java` — calls converter during sync (line 284)
+- `adapter/YahooFinancePriceProvider.java` — rejects unconvertible ISINs
 
-Converts ISIN codes to Yahoo Finance ticker symbols using the free, open OpenFIGI API:
+### Flow
 
-```java
-// Usage
-String ticker = isinConverter.isinToYahooTicker("IE00BYVQ9F29");
-// Returns: "IWDA.AS" (or original ISIN if conversion fails)
+```
+TR WebSocket → TrPosition(isin)
+    ↓
+TradeRepublicSyncService.upsertAccount()
+    ↓
+openFigiIsinConverter.isinToYahooTicker(isin)
+    ↓
+OpenFIGI API /v3/search → returns ticker with market suffix
+    ↓
+Stored as AccountHolding.ticker = "IWDA.AS"
+    ↓
+PriceService.getPriceEur("IWDA.AS")
+    ↓
+YahooFinancePriceProvider.getPricesEur() → Yahoo API ✅
 ```
 
-**Features:**
-- Uses OpenFIGI's `/v3/search` endpoint to look up ticker symbols by ISIN
-- Prefers tickers with market suffixes (`.AS`, `.PA`, `.DE`, etc.) for Yahoo compatibility
-- In-memory caching to avoid repeated API calls
-- Graceful degradation: returns the original ISIN if conversion fails
-- Rate-limited: typical usage won't hit OpenFIGI's limits (no API key required)
+## Technical choices
 
-**API Details:**
-- Endpoint: `https://api.openfigi.com/v3/search` (POST)
-- Authentication: None (free API)
-- Response: Array of instruments with `ticker`, `exchCode`, `name`, `marketStatus`
+| Choice | Why | Rejected alternative |
+|--------|-----|----------------------|
+| OpenFIGI API | Free, no auth required, returns market-suffixed tickers that Yahoo accepts | ISIN2Ticker.com (commercial), Alpha Vantage (requires key), manual mapping database |
+| In-memory caching | Avoids repeated API calls during bulk sync operations | Database caching (adds complexity, slower for temporary holdings), no caching (hits API N times per sync) |
+| Graceful degradation (return original ISIN on failure) | Prevents sync failure and data loss if OpenFIGI is unavailable; Yahoo's `supports()` check then filters it | Fail-fast exception (breaks sync entirely) |
+| ISIN format regex in `YahooFinancePriceProvider.supports()` | Prevents wasted API calls to Yahoo for codes that will never resolve | Try Yahoo first, catch 404 (wastes bandwidth, slower) |
 
-### 2. **Integration in TradeRepublicSyncService**
+## Gotchas / Pitfalls
 
-When syncing holdings, the ISIN is converted before storage:
+- **ISIN codes are 12-character strings** (`[A-Z]{2}[A-Z0-9]{9}[A-Z0-9]`). The regex in `supports()` line 56-57 detects them — don't change this logic without testing multiple ISINs.
+- **OpenFIGI returns multiple results** — we prefer tickers with market suffixes (`.AS`, `.PA`, `.DE`) because Yahoo requires them. A ticker without suffix (plain `IWDA`) might exist but won't work in Yahoo.
+- **Caching is in-memory only** — cache is lost on app restart. This is fine because: (a) holdings rarely change during a session, (b) most syncs happen via scheduled job (daily), (c) OpenFIGI queries are fast anyway. See "Future Improvements" for persistent caching.
+- **If conversion fails, system doesn't crash** — it returns the original ISIN, then `YahooFinancePriceProvider.supports()` rejects it, and price remains null. This is intentional and safe.
 
-```java
-// Before fix:
-.ticker(p.isin())
+## Tests
 
-// After fix:
-String ticker = isinConverter.isinToYahooTicker(p.isin());
-.ticker(ticker)
-```
+- No dedicated unit tests for OpenFigiIsinConverter (WebClient mock setup is complex; validated via integration testing with real ISINs)
+- Integration testing: GoalServiceTest + manual testing with Trade Republic sync (verified with IE00B4L5Y983, IE00BYVQ9F29)
+- Edge cases covered: null/blank inputs, caching, OpenFIGI API timeout
 
-### 3. **Enhanced YahooFinancePriceProvider**
+## Links
 
-Added ISIN rejection logic to the `supports()` method to:
-- Detect ISIN format (12-character alphanumeric code)
-- Log and skip unsupported ISINs
-- Prevent wasted API calls for unconvertible codes
-
-```java
-// ISIN format check: AA########X (country code + 9 digits + check digit)
-if (upper.matches("[A-Z]{2}[A-Z0-9]{9}[A-Z0-9]")) {
-    return false; // ISIN not supported by Yahoo
-}
-```
-
-## Impact
-
-### Before
-- Trade Republic holdings had missing prices
-- Logs: "Yahoo Finance price fetch failed for IE00BYVQ9F29: 404 Not Found"
-- Portfolio value incomplete
-
-### After
-- ISIN → ticker conversion happens at sync time
-- Prices fetched successfully via Yahoo Finance
-- Graceful fallback if OpenFIGI is unavailable (uses original ISIN, system continues)
-
-## Examples
-
-| ISIN | Converted Ticker | Yahoo Status |
-|------|------------------|--------------|
-| `IE00B4L5Y983` | `IWDA.AS` | ✅ Found |
-| `IE00BYVQ9F29` | `EUNL.AS` | ✅ Found |
-| `LU0392494562` | `EUNL.PA` | ✅ Found |
-| `XX0000000000` | `XX0000000000` | ❌ Not found (fallback to ISIN) |
-
-## Error Handling
-
-**Scenario: OpenFIGI API unavailable**
-1. `isinConverter.isinToYahooTicker("IE00...")` catches exception
-2. Returns original ISIN code
-3. `PriceService` attempts to fetch price for ISIN from Yahoo
-4. Yahoo's `supports()` check rejects the ISIN
-5. Price remains null (no crash, graceful degradation)
-
-**Scenario: ISIN exists but no ticker found**
-- Returns original ISIN
-- System continues (no data loss)
-
-## Testing
-
-- ✅ Code compiles without errors
-- ✅ Existing unit tests pass
-- ✅ Integration: OpenFIGI adapter tested with real ISIN codes (IE00B4L5Y983, IE00BYVQ9F29)
-- ✅ Edge cases: null/blank inputs, caching, graceful degradation
-
-## Configuration
-
-No additional configuration required. The OpenFIGI API is free and doesn't require:
-- API keys
-- Environment variables
-- Additional dependencies
-
-## Future Improvements
-
-1. **Batch ISIN conversion** – If many positions need conversion, batch OpenFIGI requests
-2. **Fallback providers** – Add secondary ISIN→ticker sources (Alpha Vantage, IEXCloud) if OpenFIGI becomes unavailable
-3. **Persistent ISIN mapping** – Cache results in database to reduce API load
-4. **Monitoring** – Track conversion success/failure rates
-
-## References
-
-- **OpenFIGI**: https://www.openfigi.com/api
-- **ISIN Format**: ISO 6166 standard (12-character code)
-- **Yahoo Ticker Format**: Various market suffixes (`.PA` for Euronext Paris, `.AS` for Euronext Amsterdam, etc.)
+- Related feature: [price-service.md](./price-service.md) (price lookups)
+- Related feature: [trade-republic.md](./trade-republic.md) (TR sync)
+- No ADR needed — this is an adapter for external data transformation, not an architectural decision

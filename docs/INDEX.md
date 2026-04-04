@@ -26,9 +26,11 @@
 |----------------|-------------|------|
 | Synchronisation bancaire | 2026-04-04 | [bank-sync.md](./features/bank-sync.md) |
 | Trade Republic | 2026-04-04 | [trade-republic.md](./features/trade-republic.md) |
+| Conversion ISIN → Ticker | 2026-04-04 | [isin-to-ticker-conversion.md](./features/ISIN_TO_TICKER_CONVERSION.md) |
 | Suivi crypto | 2026-04-04 | [crypto-tracking.md](./features/crypto-tracking.md) |
 | Objectifs d'epargne | 2026-04-04 | [goals.md](./features/goals.md) |
 | Service de prix | 2026-04-04 | [price-service.md](./features/price-service.md) |
+| Prix en direct (holdings) | 2026-04-04 | [live-prices-holdings.md](./features/live-prices-holdings.md) |
 | Import Finary | 2026-04-04 | [finary-import.md](./features/finary-import.md) |
 
 ## Conventions
