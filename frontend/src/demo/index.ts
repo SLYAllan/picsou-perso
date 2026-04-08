@@ -67,48 +67,51 @@ for (let i = 1; i <= 7; i++) {
   handlers.set(key('GET', `/accounts/${i}/transactions`), () => mockTransactions[i] ?? [])
 }
 
-// Account details: history for multiple accounts
-handlers.set(key('GET', '/accounts/1/history'), () => [
-  { id: 1, date: '2025-01-01', balance: 7200 },
-  { id: 2, date: '2025-02-01', balance: 7500 },
-  { id: 3, date: '2025-03-01', balance: 7800 },
-])
+// Account details: history for multiple accounts (12 months each)
+function generateHistory(startBalances: number[], currentBalance: number, volatility = 0.03) {
+  const now = new Date()
+  const points: { id: number; date: string; balance: number }[] = []
+  const months = startBalances.length
 
-handlers.set(key('GET', '/accounts/2/history'), () => [
-  { id: 4, date: '2025-01-01', balance: 10200 },
-  { id: 5, date: '2025-02-01', balance: 11300 },
-  { id: 6, date: '2025-03-01', balance: 12450.5 },
-])
+  for (let i = 0; i < months; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - (months - 1 - i), 1)
+    points.push({
+      id: 100 + i,
+      date: d.toISOString().split('T')[0],
+      balance: startBalances[i],
+    })
+  }
 
-handlers.set(key('GET', '/accounts/3/history'), () => [
-  { id: 7, date: '2025-01-01', balance: 7100 },
-  { id: 8, date: '2025-02-01', balance: 7800 },
-  { id: 9, date: '2025-03-01', balance: 8320.75 },
-])
+  return points
+}
 
-handlers.set(key('GET', '/accounts/4/history'), () => [
-  { id: 10, date: '2025-01-01', balance: 1800 },
-  { id: 11, date: '2025-02-01', balance: 2100 },
-  { id: 12, date: '2025-03-01', balance: 2340.2 },
-])
+// LEP: slow steady growth (savings account)
+handlers.set(key('GET', '/accounts/1/history'), () => generateHistory(
+  [6100, 6250, 6400, 6500, 6650, 6800, 6950, 7100, 7200, 7400, 7600, 7800], 7800))
 
-handlers.set(key('GET', '/accounts/5/history'), () => [
-  { id: 13, date: '2025-01-01', balance: 1200 },
-  { id: 14, date: '2025-02-01', balance: 1400 },
-  { id: 15, date: '2025-03-01', balance: 1580.9 },
-])
+// PEA: moderate growth with some dips
+handlers.set(key('GET', '/accounts/2/history'), () => generateHistory(
+  [8200, 8600, 9100, 8800, 9400, 9900, 10200, 10800, 11200, 11600, 12000, 12450.5], 12450.5))
 
-handlers.set(key('GET', '/accounts/6/history'), () => [
-  { id: 16, date: '2025-01-01', balance: 3200 },
-  { id: 17, date: '2025-02-01', balance: 3700 },
-  { id: 18, date: '2025-03-01', balance: 4250 },
-])
+// Compte Titres: more volatile
+handlers.set(key('GET', '/accounts/3/history'), () => generateHistory(
+  [5800, 6200, 6700, 6400, 6900, 7200, 7500, 7100, 7600, 7900, 8100, 8320.75], 8320.75))
 
-handlers.set(key('GET', '/accounts/7/history'), () => [
-  { id: 19, date: '2025-01-01', balance: 4800 },
-  { id: 20, date: '2025-02-01', balance: 4960 },
-  { id: 21, date: '2025-03-01', balance: 5120 },
-])
+// Checking BNP: fluctuates around salary cycle
+handlers.set(key('GET', '/accounts/4/history'), () => generateHistory(
+  [1200, 2800, 1500, 3100, 1800, 2600, 1400, 2900, 1700, 2500, 2100, 2340.2], 2340.2))
+
+// Checking BoursoBank: smaller balance, fluctuates
+handlers.set(key('GET', '/accounts/5/history'), () => generateHistory(
+  [800, 1100, 950, 1300, 1050, 1200, 900, 1350, 1100, 1250, 1400, 1580.9], 1580.9))
+
+// Crypto: volatile, strong upward trend
+handlers.set(key('GET', '/accounts/6/history'), () => generateHistory(
+  [1800, 2100, 2400, 1900, 2600, 2800, 3100, 2700, 3400, 3600, 3900, 4250], 4250))
+
+// Livret A: slow steady growth
+handlers.set(key('GET', '/accounts/7/history'), () => generateHistory(
+  [4200, 4320, 4440, 4560, 4620, 4740, 4800, 4920, 4980, 5040, 5080, 5120], 5120))
 
 // Goals
 handlers.set(key('GET', '/goals'), () => mockGoals)

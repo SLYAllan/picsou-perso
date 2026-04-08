@@ -13,6 +13,7 @@ export interface PortfolioLine {
   id: string
   name: string
   ticker: string | null
+  quantity: number
   accountName: string
   accountType: Account['type']
   accountColor: string
@@ -41,6 +42,7 @@ export function usePortfolio() {
               id: `${account.id}-${h.ticker}`,
               name: h.name ?? h.ticker,
               ticker: h.ticker,
+              quantity: h.quantity,
               accountName: account.name,
               accountType: account.type,
               accountColor: account.color,
@@ -80,6 +82,7 @@ export function usePortfolio() {
           id: 'cash-aggregated',
           name: 'Euros',
           ticker: 'EUR',
+          quantity: 0,
           accountName: cashAccounts.map(a => a.name).join(', '),
           accountType: cashAccounts[0].type,
           accountColor: '#22c55e',
@@ -209,6 +212,76 @@ export function useDeleteAccount() {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['goals'] })
     },
+  })
+}
+
+export interface AccountsHistoryPoint {
+  date: string
+  [accountId: string]: string | number
+}
+
+export function useAllAccountsHistory() {
+  const { data: accounts, isLoading } = useAccounts()
+
+  return useQuery({
+    queryKey: ['accounts', 'all-history'],
+    queryFn: async (): Promise<AccountsHistoryPoint[]> => {
+      if (!accounts || accounts.length === 0) return []
+
+      const histories = await Promise.all(
+        accounts.map(async (account) => {
+          try {
+            const snapshots = await accountsApi.history(account.id)
+            return { account, snapshots }
+          } catch {
+            return { account, snapshots: [] }
+          }
+        }),
+      )
+
+      // Collect all unique dates
+      const dateMap = new Map<string, AccountsHistoryPoint>()
+      for (const { account, snapshots } of histories) {
+        for (const snap of snapshots) {
+          const dateStr = snap.date.slice(0, 10)
+          if (!dateMap.has(dateStr)) {
+            dateMap.set(dateStr, { date: dateStr })
+          }
+          const point = dateMap.get(dateStr)!
+          point[account.id] = snap.balance
+        }
+        // Ensure the current balance is represented at today's date
+        const today = new Date().toISOString().slice(0, 10)
+        if (!dateMap.has(today)) {
+          dateMap.set(today, { date: today })
+        }
+        const todayPoint = dateMap.get(today)!
+        if (todayPoint[account.id] === undefined) {
+          todayPoint[account.id] = account.currentBalanceEur
+        }
+      }
+
+      // Sort by date
+      const points = Array.from(dateMap.values()).sort(
+        (a, b) => a.date.localeCompare(b.date),
+      )
+
+      // Forward-fill missing values (last known balance)
+      const lastKnown = new Map<number, number>()
+      for (const point of points) {
+        for (const account of accounts) {
+          if (point[account.id] !== undefined) {
+            lastKnown.set(account.id, point[account.id] as number)
+          } else if (lastKnown.has(account.id)) {
+            point[account.id] = lastKnown.get(account.id)!
+          }
+        }
+      }
+
+      return points
+    },
+    staleTime: QUERY_STALE_TIMES.accounts,
+    enabled: !!accounts && accounts.length > 0,
   })
 }
 

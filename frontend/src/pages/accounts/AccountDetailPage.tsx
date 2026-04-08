@@ -150,27 +150,27 @@ export function AccountDetailPage() {
         </Card>
       ) : account ? (
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3 mb-1">
-              <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: account.color }} />
-              <div>
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-sm text-muted-foreground font-medium">{account.name}</span>
-                  <AccountTypeBadge type={account.type} />
-                </div>
-                <p className="text-xs text-muted-foreground mb-1">{t('accounts.currentBalance')}</p>
-                <CurrencyDisplay
-                  value={account.currentBalanceEur}
-                  className="text-3xl font-bold text-foreground"
-                />
-                {account.currency !== 'EUR' && (
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {account.currentBalance} {account.currency}
-                    {account.ticker ? ` (${account.ticker})` : ''}
-                  </p>
-                )}
+          <CardHeader>
+            <CardTitle>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: account.color }} />
+                {account.name}
+                <AccountTypeBadge type={account.type} />
               </div>
-            </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground mb-1">{t('accounts.currentBalance')}</p>
+            <CurrencyDisplay
+              value={account.currentBalanceEur}
+              className="text-3xl font-bold text-foreground"
+            />
+            {account.currency !== 'EUR' && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {account.currentBalance} {account.currency}
+                {account.ticker ? ` (${account.ticker})` : ''}
+              </p>
+            )}
           </CardContent>
         </Card>
       ) : null}

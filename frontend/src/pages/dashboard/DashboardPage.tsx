@@ -5,11 +5,27 @@ import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { NetWorthChart } from '@/components/shared/NetWorthChart'
 import { DistributionPie } from '@/components/shared/DistributionPie'
-import { GoalProgressBar } from '@/components/shared/GoalProgressBar'
 import { LoadingSkeleton } from '@/components/shared/LoadingSkeleton'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { HoldingsCard } from '@/components/shared/HoldingsCard'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  CardAction,
+} from '@/components/ui/card'
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemFooter,
+  ItemGroup,
+} from '@/components/ui/item'
 import { Button } from '@/components/ui/button'
-import { TrendingUp, TrendingDown } from 'lucide-react'
+import { Progress } from '@/components/ui/progress'
+import { TrendingUp, TrendingDown, Plus } from 'lucide-react'
 import { todayLabel } from '@/lib/utils'
 
 export function DashboardPage() {
@@ -34,8 +50,8 @@ export function DashboardPage() {
 
       {/* Net worth hero */}
       <Card>
-        <CardContent className="pt-6">
-          <p className="text-sm text-muted-foreground mb-1">{t('dashboard.netWorth')}</p>
+        <CardContent>
+          <CardTitle>{t('dashboard.netWorth')}</CardTitle>
           <CurrencyDisplay value={data.totalNetWorth} className="text-4xl font-bold" />
 
           <div className="mt-3 flex items-center gap-2">
@@ -73,26 +89,66 @@ export function DashboardPage() {
 
       {/* Goals section */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader>
           <CardTitle>{t('dashboard.goals')}</CardTitle>
+          <CardDescription>{t('dashboard.goalsDescription')}</CardDescription>
           {data.goalSummaries.length > 0 && (
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/goals">{t('dashboard.viewAll')}</Link>
-            </Button>
+            <CardAction>
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/goals">
+                  <Plus />
+                  {t('dashboard.newGoal')}
+                </Link>
+              </Button>
+            </CardAction>
           )}
         </CardHeader>
         <CardContent>
           {data.goalSummaries.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t('dashboard.noGoals')}</p>
           ) : (
-            <div className="space-y-4">
+            <ItemGroup className="gap-3">
               {data.goalSummaries.slice(0, 3).map((goal) => (
-                <GoalProgressBar key={goal.id} goal={goal} />
+                <Item
+                  key={goal.id}
+                  variant="muted"
+                  className="flex-col items-stretch rounded-4xl px-4 py-3 gap-4"
+                >
+                  <ItemContent className="gap-3">
+                    <ItemDescription className="cn-font-heading text-xs font-medium tracking-wider text-muted-foreground uppercase">
+                      {goal.name}
+                    </ItemDescription>
+                    <CurrencyDisplay
+                      value={goal.currentTotal}
+                      className="text-3xl font-semibold tabular-nums"
+                    />
+                    <Progress value={goal.percentComplete} className="h-2.5 [&_[data-slot=progress-indicator]]:bg-emerald-500" />
+                  </ItemContent>
+                  <ItemFooter>
+                    <span className="text-sm text-muted-foreground">
+                      {Math.round(goal.percentComplete)}% {t('dashboard.achieved')}
+                    </span>
+                    <CurrencyDisplay
+                      value={goal.targetAmount}
+                      className="text-sm font-medium tabular-nums"
+                    />
+                  </ItemFooter>
+                </Item>
               ))}
-            </div>
+            </ItemGroup>
           )}
         </CardContent>
+        {data.goalSummaries.length > 0 && (
+          <CardFooter>
+            <CardDescription className="text-center">
+              {t('dashboard.goalsSummary')}
+            </CardDescription>
+          </CardFooter>
+        )}
       </Card>
+
+      {/* Holdings overview */}
+      <HoldingsCard />
     </div>
   )
 }
