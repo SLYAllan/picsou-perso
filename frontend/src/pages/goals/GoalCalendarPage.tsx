@@ -63,21 +63,33 @@ const COLORS = {
   mutedFg: 'hsl(var(--muted-foreground))',
 } as const
 
-function ProgressRing({ pct, color, size = 60, stroke = 5 }: {
+function ProgressRing({ pct, color, size = 80, stroke = 9 }: {
   pct: number; color: string; size?: number; stroke?: number
 }) {
   const r = (size - stroke) / 2
   const circ = 2 * Math.PI * r
-  const filled = Math.min(1, Math.max(0, pct)) * circ
+  const isOverflow = pct > 1
+  const baseFilled = Math.min(1, Math.max(0, pct)) * circ
+  const bonusFilled = isOverflow ? Math.min(pct - 1, 1) * circ : 0
+  const bonusIsFullCircle = bonusFilled >= circ - 0.1
+
   return (
     <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="hsl(var(--border))" strokeWidth={stroke} />
       <circle
         cx={size / 2} cy={size / 2} r={r} fill="none"
         stroke={color} strokeWidth={stroke}
-        strokeDasharray={`${filled} ${circ}`}
-        strokeLinecap="round"
+        strokeDasharray={`${baseFilled} ${circ}`}
+        strokeLinecap={isOverflow ? 'butt' : 'round'}
       />
+      {isOverflow && (
+        <circle
+          cx={size / 2} cy={size / 2} r={r} fill="none"
+          stroke="#818cf8" strokeWidth={stroke + 3}
+          strokeDasharray={`${bonusFilled} ${circ}`}
+          strokeLinecap={bonusIsFullCircle ? 'butt' : 'round'}
+        />
+      )}
     </svg>
   )
 }
@@ -90,6 +102,21 @@ function getProgressColor(entry: GoalMonthEntry, isPast: boolean): { color: stri
   if (ratio >= 1) return { color: COLORS.success, pct: ratio, label: `${Math.round(ratio * 100)}%`, textColor: COLORS.success }
   if (ratio >= 0.6) return { color: COLORS.warning, pct: ratio, label: `${Math.round(ratio * 100)}%`, textColor: COLORS.warning }
   return { color: COLORS.destructive, pct: ratio, label: `${Math.round(ratio * 100)}%`, textColor: COLORS.destructive }
+}
+
+// ---------------------------------------------------------------------------
+// Compact currency formatter (for inner donut text)
+// ---------------------------------------------------------------------------
+
+function formatCompact(value: number): string {
+  const abs = Math.abs(value)
+  if (abs >= 1_000_000)
+    return new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 2 }).format(value) + '€'
+  if (abs >= 10_000)
+    return new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 0 }).format(value) + '€'
+  if (abs >= 1_000)
+    return new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 1 }).format(value) + '€'
+  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value)
 }
 
 // ---------------------------------------------------------------------------
@@ -109,31 +136,55 @@ function YearGridView({ months, selectedYm, onSelect }: {
             <CardTitle className="text-xs font-bold tracking-wider uppercase text-muted-foreground">{year}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-6 gap-x-3 gap-y-4">
+            <div className="grid grid-cols-3 gap-3">
               {entries.map(entry => {
                 const isSelected = selectedYm === entry.yearMonth
                 const hasOverride = entry.override != null
                 const hasManual = entry.manualActual != null
-                const { color, pct, label, textColor } = getProgressColor(entry, true)
+                const { color, pct, textColor } = getProgressColor(entry, true)
+                const effectiveText = entry.effective != null ? formatCompact(entry.effective) : null
+                const percentLabel = effectiveText != null
+                  ? (pct > 1 ? `+${Math.round((pct - 1) * 100)}%` : `${Math.round(pct * 100)}%`)
+                  : null
 
                 return (
                   <button
                     key={entry.yearMonth}
                     onClick={() => onSelect(entry.yearMonth)}
-                    className="flex flex-col items-center gap-1 cursor-pointer transition-opacity hover:opacity-80"
+                    className={`flex flex-col items-center gap-2.5 rounded-xl border px-2 py-3 transition-colors cursor-pointer ${
+                      isSelected ? 'border-primary bg-accent' : 'border-border hover:bg-accent/50'
+                    }`}
                   >
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground leading-none">
+                      {monthAbbr(entry.yearMonth)}
+                    </span>
                     <div className="relative">
-                      {isSelected && <div className="absolute inset-[-4px] rounded-full ring-2 ring-primary ring-offset-2 ring-offset-background" />}
-                      {hasOverride && !hasManual && <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-violet-500 border border-background" />}
-                      {hasManual && <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-blue-500 border border-background" />}
-                      <ProgressRing pct={pct} color={color} size={52} stroke={5} />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-[11px] font-bold" style={{ color: textColor }}>{label}</span>
+                      {hasOverride && !hasManual && (
+                        <div className="absolute top-[3px] right-[3px] z-10 w-[9px] h-[9px] rounded-full bg-violet-600 border-2 border-background" />
+                      )}
+                      {hasManual && (
+                        <div className="absolute top-[3px] right-[3px] z-10 w-[9px] h-[9px] rounded-full bg-blue-500 border-2 border-background" />
+                      )}
+                      <ProgressRing pct={pct} color={color} size={80} stroke={9} />
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none gap-[2px]">
+                        {effectiveText != null ? (
+                          <>
+                            <span className="text-[11px] font-bold leading-none" style={{ color: textColor }}>
+                              {effectiveText}
+                            </span>
+                            <span className="text-[9px] leading-none" style={{ color: textColor }}>
+                              {percentLabel}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-[13px] font-bold leading-none" style={{ color: COLORS.mutedFg }}>
+                            –
+                          </span>
+                        )}
                       </div>
                     </div>
-                    <span className="text-xs font-medium">{monthAbbr(entry.yearMonth)}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {entry.effective != null ? <CurrencyDisplay value={entry.effective} className="text-xs" /> : '—'}
+                    <span className="text-[10px] text-muted-foreground leading-none">
+                      obj.&nbsp;{formatCompact(entry.objective)}
                     </span>
                   </button>
                 )
@@ -434,11 +485,12 @@ export function GoalCalendarPage() {
         <Skeleton className="h-9 w-72" />
         <Card>
           <CardContent className="p-6">
-            <div className="grid grid-cols-6 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               {Array.from({ length: 12 }).map((_, i) => (
-                <div key={i} className="flex flex-col items-center gap-1">
-                  <Skeleton className="size-[52px] rounded-full" />
-                  <Skeleton className="h-3 w-8" />
+                <div key={i} className="flex flex-col items-center gap-2.5 rounded-xl border border-border px-2 py-3">
+                  <Skeleton className="h-2.5 w-8" />
+                  <Skeleton className="size-[80px] rounded-full" />
+                  <Skeleton className="h-2.5 w-14" />
                 </div>
               ))}
             </div>
