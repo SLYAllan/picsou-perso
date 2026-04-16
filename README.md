@@ -6,7 +6,7 @@
 
 Track bank accounts, brokerage, crypto, and net worth — all in one place.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: Apache 2.0 + Commons Clause](https://img.shields.io/badge/License-Apache%202.0%20%2B%20Commons%20Clause-blue.svg)](LICENSE)
 
 [Getting started](#getting-started) · [Features](#features) · [Development](#development) · [Security](SECURITY.md)
 
@@ -156,4 +156,4 @@ See [SECURITY.md](SECURITY.md) for the vulnerability reporting policy.
 
 ## License
 
-[MIT](LICENSE) — provided as-is, with no warranty. For personal use.
+[Apache 2.0 + Commons Clause](LICENSE) — free for personal use and managed hosting. Commercial SaaS use is prohibited without permission.
