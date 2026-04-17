@@ -26,7 +26,6 @@ export function FamilySettingsPage() {
     <div className="space-y-6 p-6">
       <PageHeader
         title={t('family.settings.title', 'Family Settings')}
-        description={t('family.settings.description', 'Manage family members and sharing preferences')}
       />
 
       {isAdmin && <MemberManagement />}
@@ -164,6 +163,7 @@ function SharingSection() {
 }
 
 function SharingCard({ resourceType, title }: { resourceType: string; title: string }) {
+  const { t } = useTranslation()
   const { data: settings, isLoading } = useSharingSettings(resourceType)
   const updateSettings = useUpdateSharingSettings()
   const { data: accounts } = useAccounts()

@@ -97,7 +97,8 @@ function SectionCard({
 export function SettingsPage() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
-  const { username, logout } = useAuthStore()
+  const user = useAuthStore((s) => s.user)
+  const logout = useAuthStore((s) => s.logout)
   const { dateFormat, setDateFormat } = useAppStore()
 
   // Theme -----------------------------------------------------------------
@@ -194,7 +195,7 @@ export function SettingsPage() {
               {t('settings.username')}
             </Label>
             <Input
-              value={username ?? ''}
+              value={user?.username ?? ''}
               readOnly
               className="max-w-[200px] bg-muted"
             />

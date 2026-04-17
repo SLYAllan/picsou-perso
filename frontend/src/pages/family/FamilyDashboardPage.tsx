@@ -19,7 +19,6 @@ export function FamilyDashboardPage() {
     <div className="space-y-6 p-6">
       <PageHeader
         title={t('family.dashboard.title', 'Family Dashboard')}
-        description={t('family.dashboard.description', 'Shared accounts and goals from your family')}
       />
 
       {/* Total shared net worth */}

@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { familyApi, FamilyMemberItem, FamilyDashboard, SharingSettings } from './api'
-import { useProfileStore } from '@/stores/profile-store'
+import { familyApi } from './api'
 
 export function useFamilyMembers() {
   return useQuery({
