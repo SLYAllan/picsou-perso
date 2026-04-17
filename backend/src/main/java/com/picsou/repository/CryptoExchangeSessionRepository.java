@@ -10,4 +10,9 @@ import java.util.Optional;
 public interface CryptoExchangeSessionRepository extends JpaRepository<CryptoExchangeSession, Long> {
     List<CryptoExchangeSession> findAllByOrderByCreatedAtAsc();
     Optional<CryptoExchangeSession> findByExchangeType(ExchangeType exchangeType);
+
+    // memberId-scoped queries
+    List<CryptoExchangeSession> findAllByMemberId(Long memberId);
+    Optional<CryptoExchangeSession> findByIdAndMemberId(Long id, Long memberId);
+    Optional<CryptoExchangeSession> findByExchangeTypeAndMemberId(ExchangeType exchangeType, Long memberId);
 }

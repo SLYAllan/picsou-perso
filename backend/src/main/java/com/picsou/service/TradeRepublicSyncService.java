@@ -3,10 +3,12 @@ package com.picsou.service;
 import com.picsou.adapter.OpenFigiIsinConverter;
 import com.picsou.config.CryptoEncryption;
 import com.picsou.dto.AccountResponse;
+import com.picsou.exception.ResourceNotFoundException;
 import com.picsou.exception.SyncException;
 import com.picsou.model.Account;
 import com.picsou.model.AccountHolding;
 import com.picsou.model.AccountType;
+import com.picsou.model.FamilyMember;
 import com.picsou.model.TradeRepublicSession;
 import com.picsou.port.TradeRepublicPort;
 import com.picsou.port.TradeRepublicPort.TrAccountData;
@@ -14,6 +16,7 @@ import com.picsou.port.TradeRepublicPort.TrPosition;
 import com.picsou.port.TradeRepublicPort.TrTokens;
 import com.picsou.repository.AccountHoldingRepository;
 import com.picsou.repository.AccountRepository;
+import com.picsou.repository.FamilyMemberRepository;
 import com.picsou.repository.TradeRepublicSessionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,6 +57,7 @@ public class TradeRepublicSyncService {
     private final TradeRepublicSessionRepository sessionRepository;
     private final AccountRepository             accountRepository;
     private final AccountHoldingRepository      holdingRepository;
+    private final FamilyMemberRepository        familyMemberRepository;
     private final AccountService                accountService;
     private final OpenFigiIsinConverter         isinConverter;
     private final CryptoEncryption              encryption;
@@ -64,6 +68,7 @@ public class TradeRepublicSyncService {
         TradeRepublicSessionRepository sessionRepository,
         AccountRepository accountRepository,
         AccountHoldingRepository holdingRepository,
+        FamilyMemberRepository familyMemberRepository,
         AccountService accountService,
         OpenFigiIsinConverter isinConverter,
         CryptoEncryption encryption,
@@ -73,13 +78,14 @@ public class TradeRepublicSyncService {
         this.sessionRepository = sessionRepository;
         this.accountRepository = accountRepository;
         this.holdingRepository = holdingRepository;
+        this.familyMemberRepository = familyMemberRepository;
         this.accountService    = accountService;
         this.isinConverter     = isinConverter;
         this.encryption        = encryption;
         this.txTemplate        = txTemplate;
     }
 
-    // ─── Auth ─────────────────────────────────────────────────────────────────
+    // --- Auth ---
 
     /**
      * Step 1: Sends phone+PIN to TR, triggers SMS. Returns processId.
@@ -93,27 +99,36 @@ public class TradeRepublicSyncService {
 
     /**
      * Step 2: Exchanges 2FA code for session + refresh tokens, stores them.
-     * Returns immediately — sync runs in background.
+     * Returns immediately -- sync runs in background.
      */
-    public SessionStatusResponse completeAuth(String processId, String tan) {
+    public SessionStatusResponse completeAuth(String processId, String tan, Long memberId) {
         TrTokens tokens = trPort.completeAuth(processId, tan);
 
-        sessionRepository.deleteAll();
+        FamilyMember member = familyMemberRepository.findById(memberId)
+            .orElseThrow(() -> new ResourceNotFoundException("Family member not found: " + memberId));
+
+        // Delete any existing sessions for this member
+        sessionRepository.findByMemberId(memberId).ifPresent(sessionRepository::delete);
+
         TradeRepublicSession session = TradeRepublicSession.builder()
+            .member(member)
             .sessionToken(encryption.encrypt(tokens.sessionToken()))
             .refreshToken(encryption.encrypt(tokens.refreshToken()))
             .expiresAt(Instant.now().plus(2, ChronoUnit.HOURS))
             .build();
         sessionRepository.save(session);
 
-        log.info("Trade Republic session stored (refresh token: {}), firing background sync",
-                 tokens.refreshToken() != null ? "yes" : "no");
+        log.info("Trade Republic session stored for member {} (refresh token: {}), firing background sync",
+                 memberId, tokens.refreshToken() != null ? "yes" : "no");
 
         String plainToken = tokens.sessionToken();
-        TradeRepublicSession savedSession = sessionRepository.findTopByOrderByCreatedAtDesc().orElse(null);
+        Long sessionId = session.getId();
         CompletableFuture.runAsync(() -> {
             try {
-                txTemplate.executeWithoutResult(status -> syncWithToken(plainToken, savedSession));
+                txTemplate.executeWithoutResult(status -> {
+                    TradeRepublicSession savedSession = sessionRepository.findById(sessionId).orElse(null);
+                    syncWithToken(plainToken, savedSession, memberId);
+                });
                 log.info("Trade Republic background sync complete");
             } catch (Exception ex) {
                 log.error("Trade Republic background sync failed: {}", ex.getMessage());
@@ -123,20 +138,20 @@ public class TradeRepublicSyncService {
         return new SessionStatusResponse(true, session.getExpiresAt());
     }
 
-    // ─── Sync ─────────────────────────────────────────────────────────────────
+    // --- Sync ---
 
     /** Manual or scheduled sync using the stored session, with auto-refresh. */
-    public List<AccountResponse> sync() {
-        TradeRepublicSession stored = sessionRepository.findTopByOrderByCreatedAtDesc()
+    public List<AccountResponse> sync(Long memberId) {
+        TradeRepublicSession stored = sessionRepository.findByMemberId(memberId)
             .orElseThrow(() -> new SyncException("Aucune session Trade Republic. Veuillez vous connecter."));
-        return syncWithToken(encryption.decrypt(stored.getSessionToken()), stored);
+        return syncWithToken(encryption.decrypt(stored.getSessionToken()), stored, memberId);
     }
 
-    private List<AccountResponse> syncWithToken(String sessionToken, TradeRepublicSession stored) {
+    private List<AccountResponse> syncWithToken(String sessionToken, TradeRepublicSession stored, Long memberId) {
         try {
             List<TrAccountData> accounts = trPort.fetchAccounts(sessionToken);
             List<AccountResponse> responses = accounts.stream()
-                .map(this::upsertAccount)
+                .map(data -> upsertAccount(data, memberId))
                 .toList();
             log.info("Trade Republic sync complete: {} accounts updated", responses.size());
             return responses;
@@ -144,19 +159,19 @@ public class TradeRepublicSyncService {
             if ("SESSION_EXPIRED".equals(e.getMessage())) {
                 // Try to refresh via stored refresh token
                 if (stored != null && stored.getRefreshToken() != null) {
-                    log.info("TR session expired — attempting refresh with stored refresh token");
-                    return refreshAndRetry(stored);
+                    log.info("TR session expired -- attempting refresh with stored refresh token");
+                    return refreshAndRetry(stored, memberId);
                 }
-                log.warn("TR session expired — no refresh token available, clearing session");
-                sessionRepository.deleteAll();
+                log.warn("TR session expired -- no refresh token available, clearing session");
+                sessionRepository.findByMemberId(memberId).ifPresent(sessionRepository::delete);
                 throw new SyncException(
-                    "Session Trade Republic expirée. Veuillez vous reconnecter depuis la page Trade Republic.");
+                    "Session Trade Republic expiree. Veuillez vous reconnecter depuis la page Trade Republic.");
             }
             throw e;
         }
     }
 
-    private List<AccountResponse> refreshAndRetry(TradeRepublicSession stored) {
+    private List<AccountResponse> refreshAndRetry(TradeRepublicSession stored, Long memberId) {
         try {
             TrTokens newTokens = trPort.refreshSession(encryption.decrypt(stored.getRefreshToken()));
             stored.setSessionToken(encryption.encrypt(newTokens.sessionToken()));
@@ -165,17 +180,17 @@ public class TradeRepublicSyncService {
             }
             stored.setExpiresAt(Instant.now().plus(2, ChronoUnit.HOURS));
             sessionRepository.save(stored);
-            log.info("TR session refreshed — retrying sync");
-            return syncWithToken(newTokens.sessionToken(), null); // null = no retry on next expiry
+            log.info("TR session refreshed -- retrying sync");
+            return syncWithToken(newTokens.sessionToken(), null, memberId); // null = no retry on next expiry
         } catch (SyncException ex) {
-            log.warn("TR refresh failed — clearing session");
-            sessionRepository.deleteAll();
+            log.warn("TR refresh failed -- clearing session");
+            sessionRepository.findByMemberId(memberId).ifPresent(sessionRepository::delete);
             throw new SyncException(
-                "Session Trade Republic expirée et refresh échoué. Veuillez vous reconnecter.");
+                "Session Trade Republic expiree et refresh echoue. Veuillez vous reconnecter.");
         }
     }
 
-    // ─── CSV import (fallback) ─────────────────────────────────────────────────
+    // --- CSV import (fallback) ---
 
     /**
      * Imports account balances from a CSV file.
@@ -188,7 +203,7 @@ public class TradeRepublicSyncService {
      * </pre>
      * Valid types: PEA, COMPTE_TITRES, CRYPTO, CHECKING, SAVINGS, LEP, OTHER
      */
-    public List<AccountResponse> importCsv(MultipartFile file) {
+    public List<AccountResponse> importCsv(MultipartFile file, Long memberId) {
         List<AccountResponse> responses = new ArrayList<>();
 
         try (BufferedReader reader = new BufferedReader(
@@ -238,7 +253,7 @@ public class TradeRepublicSyncService {
                     .replaceAll("[^a-z0-9]", "_")
                     .replaceAll("_+", "_");
 
-                responses.add(upsertAccount(new TrAccountData(externalId, name, type, balance, List.of())));
+                responses.add(upsertAccount(new TrAccountData(externalId, name, type, balance, List.of()), memberId));
             }
 
         } catch (Exception ex) {
@@ -249,11 +264,11 @@ public class TradeRepublicSyncService {
         return responses;
     }
 
-    // ─── Session status ────────────────────────────────────────────────────────
+    // --- Session status ---
 
     @Transactional(readOnly = true)
-    public SessionStatusResponse getSessionStatus() {
-        Optional<TradeRepublicSession> session = sessionRepository.findTopByOrderByCreatedAtDesc();
+    public SessionStatusResponse getSessionStatus(Long memberId) {
+        Optional<TradeRepublicSession> session = sessionRepository.findByMemberId(memberId);
         if (session.isEmpty()) {
             return new SessionStatusResponse(false, null);
         }
@@ -262,36 +277,36 @@ public class TradeRepublicSyncService {
         return new SessionStatusResponse(active, s.getExpiresAt());
     }
 
-    public void clearSession() {
-        sessionRepository.deleteAll();
-        log.info("Trade Republic session cleared");
+    public void clearSession(Long memberId) {
+        sessionRepository.findByMemberId(memberId).ifPresent(sessionRepository::delete);
+        log.info("Trade Republic session cleared for member {}", memberId);
     }
 
-    // ─── Scheduler entry point ─────────────────────────────────────────────────
+    // --- Scheduler entry point ---
 
-    /** Called by SchedulerService. No-op if no active session. */
-    public void resyncIfSessionActive() {
-        Optional<TradeRepublicSession> session = sessionRepository.findTopByOrderByCreatedAtDesc();
+    /** Called by SchedulerService. No-op if no active session for this member. */
+    public void resyncIfSessionActive(Long memberId) {
+        Optional<TradeRepublicSession> session = sessionRepository.findByMemberId(memberId);
         if (session.isEmpty()) return;
 
         TradeRepublicSession s = session.get();
         if (s.getExpiresAt() != null && !s.getExpiresAt().isAfter(Instant.now())) {
-            log.warn("Trade Republic session expired — skipping auto-sync. Re-authenticate via the UI.");
+            log.warn("Trade Republic session expired for member {} -- skipping auto-sync. Re-authenticate via the UI.", memberId);
             return;
         }
 
         try {
-            syncWithToken(encryption.decrypt(s.getSessionToken()), s);
+            syncWithToken(encryption.decrypt(s.getSessionToken()), s, memberId);
         } catch (Exception ex) {
-            log.warn("Trade Republic auto-sync failed: {}", ex.getMessage());
+            log.warn("Trade Republic auto-sync failed for member {}: {}", memberId, ex.getMessage());
         }
     }
 
-    // ─── Private ──────────────────────────────────────────────────────────────
+    // --- Private ---
 
-    private AccountResponse upsertAccount(TrAccountData data) {
-        log.debug("TR upsertAccount: looking for externalId={}", data.externalId());
-        Optional<Account> existing = accountRepository.findByExternalAccountId(data.externalId());
+    private AccountResponse upsertAccount(TrAccountData data, Long memberId) {
+        log.debug("TR upsertAccount: looking for externalId={} memberId={}", data.externalId(), memberId);
+        Optional<Account> existing = accountRepository.findByExternalAccountIdAndMemberId(data.externalId(), memberId);
         log.debug("TR upsertAccount: found existing={}", existing.isPresent());
 
         Account account;
@@ -300,7 +315,10 @@ public class TradeRepublicSyncService {
             account.setCurrentBalance(data.balanceEur());
             account.setLastSyncedAt(Instant.now());
         } else {
+            FamilyMember member = familyMemberRepository.findById(memberId)
+                .orElseThrow(() -> new ResourceNotFoundException("Family member not found: " + memberId));
             account = Account.builder()
+                .member(member)
                 .name(data.name())
                 .type(data.type())
                 .provider("Trade Republic")
@@ -361,13 +379,13 @@ public class TradeRepublicSyncService {
         };
     }
 
-    // ─── Response records ──────────────────────────────────────────────────────
+    // --- Response records ---
 
     public record AuthInitResponse(String processId) {}
 
     public record SessionStatusResponse(boolean isActive, Instant expiresAt) {}
 
-    // ─── Helper records ────────────────────────────────────────────────────────
+    // --- Helper records ---
 
     private record HoldingAgg(BigDecimal quantity, BigDecimal averageBuyIn, BigDecimal currentPrice, String name) {}
 }

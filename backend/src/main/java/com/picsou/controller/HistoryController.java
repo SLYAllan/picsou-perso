@@ -3,6 +3,7 @@ package com.picsou.controller;
 import com.picsou.dto.DashboardResponse;
 import com.picsou.dto.PnlResponse;
 import com.picsou.service.HistoryService;
+import com.picsou.service.UserContext;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -12,9 +13,11 @@ import java.util.List;
 public class HistoryController {
 
     private final HistoryService historyService;
+    private final UserContext userContext;
 
-    public HistoryController(HistoryService historyService) {
+    public HistoryController(HistoryService historyService, UserContext userContext) {
         this.historyService = historyService;
+        this.userContext = userContext;
     }
 
     @GetMapping
@@ -23,11 +26,11 @@ public class HistoryController {
         @RequestParam(defaultValue = "12") int months,
         @RequestParam(defaultValue = "false") boolean split
     ) {
-        return historyService.buildHistory(accountIds, months, split);
+        return historyService.buildHistory(accountIds, months, split, userContext.currentMemberId());
     }
 
     @GetMapping("/pnl")
     public PnlResponse getPnl(@RequestParam List<Long> accountIds) {
-        return historyService.buildPnl(accountIds);
+        return historyService.buildPnl(accountIds, userContext.currentMemberId());
     }
 }

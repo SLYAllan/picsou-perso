@@ -50,7 +50,11 @@ public class HistoryService {
     }
 
     public List<NetWorthPoint> buildHistory(List<Long> accountIds, int months) {
-        return buildHistory(accountIds, months, false);
+        return buildHistory(accountIds, months, false, null);
+    }
+
+    public List<NetWorthPoint> buildHistory(List<Long> accountIds, int months, Long memberId) {
+        return buildHistory(accountIds, months, false, memberId);
     }
 
     /**
@@ -64,9 +68,18 @@ public class HistoryService {
      * When split=true, each point also includes per-account breakdown in the accounts map.
      * Today's point is replaced with live-calculated values.
      */
-    public List<NetWorthPoint> buildHistory(List<Long> accountIds, int months, boolean split) {
+    public List<NetWorthPoint> buildHistory(List<Long> accountIds, int months, boolean split, Long memberId) {
         List<Account> accounts = accountRepository.findAllById(accountIds);
         if (accounts.isEmpty()) return List.of();
+
+        // Validate all accounts belong to the requesting member
+        if (memberId != null) {
+            for (Account account : accounts) {
+                if (!account.getMember().getId().equals(memberId)) {
+                    throw com.picsou.exception.ResourceNotFoundException.account(account.getId());
+                }
+            }
+        }
 
         LocalDate from = LocalDate.now().minusMonths(months);
         LocalDate to = LocalDate.now();
@@ -241,10 +254,19 @@ public class HistoryService {
     /**
      * Compute the live PnL for a set of accounts.
      */
-    public com.picsou.dto.PnlResponse buildPnl(List<Long> accountIds) {
+    public com.picsou.dto.PnlResponse buildPnl(List<Long> accountIds, Long memberId) {
         List<Account> accounts = accountRepository.findAllById(accountIds);
         if (accounts.isEmpty()) {
             return new com.picsou.dto.PnlResponse(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, null);
+        }
+
+        // Validate all accounts belong to the requesting member
+        if (memberId != null) {
+            for (Account account : accounts) {
+                if (!account.getMember().getId().equals(memberId)) {
+                    throw com.picsou.exception.ResourceNotFoundException.account(account.getId());
+                }
+            }
         }
 
         BigDecimal liveTotal = BigDecimal.ZERO;

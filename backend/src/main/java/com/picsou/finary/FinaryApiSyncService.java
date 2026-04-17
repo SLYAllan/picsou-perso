@@ -2,14 +2,17 @@ package com.picsou.finary;
 
 import com.picsou.config.CryptoEncryption;
 import com.picsou.dto.*;
+import com.picsou.exception.ResourceNotFoundException;
 import com.picsou.exception.SyncException;
 import com.picsou.finary.client.FinaryApiClient;
 import com.picsou.finary.dto.FinaryAccountDto;
 import com.picsou.finary.dto.FinaryTransactionDto;
 import com.picsou.model.Account;
+import com.picsou.model.FamilyMember;
 import com.picsou.model.FinarySession;
 import com.picsou.model.AccountType;
 import com.picsou.repository.AccountRepository;
+import com.picsou.repository.FamilyMemberRepository;
 import com.picsou.repository.FinarySessionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,8 +30,8 @@ import java.util.stream.Collectors;
 
 /**
  * Orchestrates Finary API sync in two phases:
- * 1. preview(totp) — authenticate, fetch accounts + transactions, cache, return preview
- * 2. execute(syncToken, mappings) — apply user mappings, import accounts + transactions
+ * 1. preview(totp) -- authenticate, fetch accounts + transactions, cache, return preview
+ * 2. execute(syncToken, mappings) -- apply user mappings, import accounts + transactions
  */
 @Service
 @RequiredArgsConstructor
@@ -46,6 +49,7 @@ public class FinaryApiSyncService {
     private final FinaryApiClient finaryApiClient;
     private final CryptoEncryption encryption;
     private final AccountRepository accountRepository;
+    private final FamilyMemberRepository familyMemberRepository;
     private final FinarySessionRepository finarySessionRepository;
     private final FinaryPersistenceHelper persistenceHelper;
 
@@ -55,11 +59,14 @@ public class FinaryApiSyncService {
     // Connection management
     // ---------------------------------------------------------------------------
 
-    public void login(String email, String password) {
+    public void login(String email, String password, Long memberId) {
         String encryptedEmail = encryption.encrypt(email);
         String encryptedPassword = encryption.encrypt(password);
 
-        Optional<FinarySession> existing = finarySessionRepository.findFirstByOrderByIdAsc();
+        FamilyMember member = familyMemberRepository.findById(memberId)
+            .orElseThrow(() -> new ResourceNotFoundException("Family member not found: " + memberId));
+
+        Optional<FinarySession> existing = finarySessionRepository.findByMemberId(memberId);
         FinarySession session;
         if (existing.isPresent()) {
             session = existing.get();
@@ -68,17 +75,18 @@ public class FinaryApiSyncService {
             session.setStatus("CONNECTED");
         } else {
             session = FinarySession.builder()
+                .member(member)
                 .email(encryptedEmail)
                 .password(encryptedPassword)
                 .status("CONNECTED")
                 .build();
         }
         finarySessionRepository.save(session);
-        log.info("Finary credentials stored");
+        log.info("Finary credentials stored for member {}", memberId);
     }
 
-    public FinaryConnectionStatusResponse getConnectionStatus() {
-        Optional<FinarySession> session = finarySessionRepository.findFirstByOrderByIdAsc();
+    public FinaryConnectionStatusResponse getConnectionStatus(Long memberId) {
+        Optional<FinarySession> session = finarySessionRepository.findByMemberId(memberId);
         if (session.isEmpty()) {
             return new FinaryConnectionStatusResponse(false, null, null, null, null);
         }
@@ -89,11 +97,11 @@ public class FinaryApiSyncService {
     }
 
     @Transactional
-    public void deleteSession() {
-        finarySessionRepository.findFirstByOrderByIdAsc()
+    public void deleteSession(Long memberId) {
+        finarySessionRepository.findByMemberId(memberId)
             .ifPresent(s -> {
                 finarySessionRepository.delete(s);
-                log.info("Finary session deleted");
+                log.info("Finary session deleted for member {}", memberId);
             });
     }
 
@@ -110,8 +118,8 @@ public class FinaryApiSyncService {
     /**
      * Preview phase: authenticate, fetch all accounts + transactions, cache data, return preview.
      */
-    public FinaryPreviewResponse preview(String totp) {
-        FinarySession session = finarySessionRepository.findFirstByOrderByIdAsc()
+    public FinaryPreviewResponse preview(String totp, Long memberId) {
+        FinarySession session = finarySessionRepository.findByMemberId(memberId)
             .orElseThrow(() -> new SyncException("Finary not connected. Please log in first."));
 
         String email = encryption.decrypt(session.getEmail());
@@ -192,8 +200,8 @@ public class FinaryApiSyncService {
                 })
                 .collect(Collectors.toList());
 
-            // Fetch existing Picsou accounts
-            List<AccountResponse> existing = accountRepository.findAll().stream()
+            // Fetch existing Picsou accounts for this member
+            List<AccountResponse> existing = accountRepository.findAllByMemberIdOrderByCreatedAtAsc(memberId).stream()
                 .map(a -> AccountResponse.from(a, a.getCurrentBalance()))
                 .collect(Collectors.toList());
 
@@ -205,7 +213,7 @@ public class FinaryApiSyncService {
                 String category = findCategoryForAccount(acc, allAccounts, externalIdToCategory);
                 String externalId = "finary_" + category + "_" + acc.id();
 
-                Optional<Account> existingAccount = accountRepository.findByExternalAccountId(externalId);
+                Optional<Account> existingAccount = accountRepository.findByExternalAccountIdAndMemberId(externalId, memberId);
                 if (existingAccount.isPresent()) {
                     suggestedMappings.add(new FinaryAccountMapping(
                         acc.name(), category, FinaryMappingAction.MAP_EXISTING,
@@ -242,12 +250,15 @@ public class FinaryApiSyncService {
      * Execute phase: retrieve cached data, apply mappings, create/update accounts, import transactions.
      */
     @Transactional
-    public FinaryImportResultResponse execute(String syncToken, List<FinaryAccountMapping> mappings) {
+    public FinaryImportResultResponse execute(String syncToken, List<FinaryAccountMapping> mappings, Long memberId) {
         SyncSessionData session = cache.get(syncToken);
         if (session == null) {
-            throw new SyncException("Sync session expired or invalid — please start a new sync");
+            throw new SyncException("Sync session expired or invalid -- please start a new sync");
         }
         cache.remove(syncToken);
+
+        FamilyMember member = familyMemberRepository.findById(memberId)
+            .orElseThrow(() -> new ResourceNotFoundException("Family member not found: " + memberId));
 
         int accountsCreated = 0;
         int accountsMapped = 0;
@@ -273,7 +284,7 @@ public class FinaryApiSyncService {
                 accountsSkipped++;
                 continue;
             } else if (mapping.action() == FinaryMappingAction.MAP_EXISTING) {
-                account = accountRepository.findById(mapping.targetAccountId())
+                account = accountRepository.findByIdAndMemberId(mapping.targetAccountId(), memberId)
                     .orElseThrow(() -> new SyncException(
                         "Account " + mapping.targetAccountId() + " not found"));
                 account.setCurrentBalance(BigDecimal.valueOf(finaryAcc.balance() != null ? finaryAcc.balance() : 0));
@@ -285,7 +296,7 @@ public class FinaryApiSyncService {
                 log.debug("Mapped account: {} -> {} (balance: {})", finaryAcc.name(), account.getName(), finaryAcc.balance());
             } else if (mapping.action() == FinaryMappingAction.CREATE_NEW) {
                 // Check if an account with this external ID already exists (upsert pattern)
-                Account existingAccount = accountRepository.findByExternalAccountId(externalId).orElse(null);
+                Account existingAccount = accountRepository.findByExternalAccountIdAndMemberId(externalId, memberId).orElse(null);
                 NewAccountDetails det = mapping.newAccount();
 
                 if (existingAccount != null) {
@@ -299,6 +310,7 @@ public class FinaryApiSyncService {
                 } else {
                     // Create new account
                     account = Account.builder()
+                        .member(member)
                         .name(det.name())
                         .type(det.type())
                         .provider(det.provider() != null ? det.provider() : "Finary")

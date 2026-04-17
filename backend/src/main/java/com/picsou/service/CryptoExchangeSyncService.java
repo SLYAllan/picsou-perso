@@ -9,6 +9,7 @@ import com.picsou.port.CryptoExchangePort;
 import com.picsou.port.CryptoExchangePort.CryptoHolding;
 import com.picsou.repository.AccountRepository;
 import com.picsou.repository.CryptoExchangeSessionRepository;
+import com.picsou.repository.FamilyMemberRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -33,6 +34,7 @@ public class CryptoExchangeSyncService {
     private final List<CryptoExchangePort> exchangeAdapters;
     private final CryptoExchangeSessionRepository sessionRepository;
     private final AccountRepository accountRepository;
+    private final FamilyMemberRepository familyMemberRepository;
     private final AccountService accountService;
     private final PriceService priceService;
     private final CryptoEncryption encryption;
@@ -41,6 +43,7 @@ public class CryptoExchangeSyncService {
         List<CryptoExchangePort> exchangeAdapters,
         CryptoExchangeSessionRepository sessionRepository,
         AccountRepository accountRepository,
+        FamilyMemberRepository familyMemberRepository,
         AccountService accountService,
         PriceService priceService,
         CryptoEncryption encryption
@@ -48,19 +51,23 @@ public class CryptoExchangeSyncService {
         this.exchangeAdapters = exchangeAdapters;
         this.sessionRepository = sessionRepository;
         this.accountRepository = accountRepository;
+        this.familyMemberRepository = familyMemberRepository;
         this.accountService = accountService;
         this.priceService = priceService;
         this.encryption = encryption;
     }
 
-    public AccountResponse addExchange(ExchangeType type, String apiKey, String apiSecret) {
+    public AccountResponse addExchange(ExchangeType type, String apiKey, String apiSecret, Long memberId) {
         CryptoExchangePort adapter = findAdapter(type);
 
         if (!adapter.testConnection(apiKey, apiSecret)) {
-            throw new SyncException("Connexion échouée. Vérifiez vos clés API " + type + ".");
+            throw new SyncException("Connexion echouee. Verifiez vos cles API " + type + ".");
         }
 
-        Optional<CryptoExchangeSession> existing = sessionRepository.findByExchangeType(type);
+        FamilyMember member = familyMemberRepository.findById(memberId)
+            .orElseThrow(() -> new ResourceNotFoundException("Family member not found: " + memberId));
+
+        Optional<CryptoExchangeSession> existing = sessionRepository.findByExchangeTypeAndMemberId(type, memberId);
         CryptoExchangeSession session;
         if (existing.isPresent()) {
             session = existing.get();
@@ -69,6 +76,7 @@ public class CryptoExchangeSyncService {
             session.setStatus("CONNECTED");
         } else {
             session = CryptoExchangeSession.builder()
+                .member(member)
                 .exchangeType(type)
                 .apiKey(encryption.encrypt(apiKey))
                 .apiSecret(encryption.encrypt(apiSecret))
@@ -77,11 +85,11 @@ public class CryptoExchangeSyncService {
         }
         sessionRepository.save(session);
 
-        return sync(session.getId());
+        return sync(session.getId(), memberId);
     }
 
-    public AccountResponse sync(Long sessionId) {
-        CryptoExchangeSession session = sessionRepository.findById(sessionId)
+    public AccountResponse sync(Long sessionId, Long memberId) {
+        CryptoExchangeSession session = sessionRepository.findByIdAndMemberId(sessionId, memberId)
             .orElseThrow(() -> new ResourceNotFoundException("Exchange session not found: " + sessionId));
 
         CryptoExchangePort adapter = findAdapter(session.getExchangeType());
@@ -103,7 +111,7 @@ public class CryptoExchangeSyncService {
                     totalEur = totalEur.add(
                         holding.quantity().multiply(price).setScale(2, RoundingMode.HALF_UP));
                 } else {
-                    log.warn("No EUR price for {} — skipping in total", holding.symbol());
+                    log.warn("No EUR price for {} -- skipping in total", holding.symbol());
                 }
             }
 
@@ -114,13 +122,13 @@ public class CryptoExchangeSyncService {
             String externalId = "crypto_exchange_" + session.getExchangeType().name().toLowerCase();
 
             // Resolve or create the account (without snapshot yet)
-            Account account = resolveAccount(externalId, session.getExchangeType().name(), totalEur);
+            Account account = resolveAccount(externalId, session.getExchangeType().name(), totalEur, memberId);
 
             // Persist individual holdings before snapshot (so calculateInvestedAmount finds them)
             for (CryptoHolding holding : holdings) {
                 BigDecimal price = prices.get(holding.symbol().toUpperCase());
                 if (price != null) {
-                    accountService.upsertHolding(account.getId(), holding.symbol().toUpperCase(),
+                    accountService.upsertHolding(account.getId(), memberId, holding.symbol().toUpperCase(),
                         holding.symbol().toUpperCase(), holding.quantity(), price);
                 }
             }
@@ -133,25 +141,26 @@ public class CryptoExchangeSyncService {
         } catch (Exception ex) {
             session.setStatus("ERROR");
             sessionRepository.save(session);
-            throw new SyncException("Sync " + session.getExchangeType() + " échoué : " + ex.getMessage());
+            throw new SyncException("Sync " + session.getExchangeType() + " echoue : " + ex.getMessage());
         }
     }
 
-    public void removeExchange(Long sessionId) {
-        CryptoExchangeSession session = sessionRepository.findById(sessionId)
+    public void removeExchange(Long sessionId, Long memberId) {
+        CryptoExchangeSession session = sessionRepository.findByIdAndMemberId(sessionId, memberId)
             .orElseThrow(() -> new ResourceNotFoundException("Exchange session not found: " + sessionId));
 
         String externalId = "crypto_exchange_" + session.getExchangeType().name().toLowerCase();
-        accountRepository.findByExternalAccountId(externalId).ifPresent(accountRepository::delete);
+        accountRepository.findByExternalAccountIdAndMemberId(externalId, memberId)
+            .ifPresent(accountRepository::delete);
         sessionRepository.delete(session);
         log.info("Removed exchange session {} and associated account", sessionId);
     }
 
-    public void resyncAll() {
-        List<CryptoExchangeSession> sessions = sessionRepository.findAllByOrderByCreatedAtAsc();
+    public void resyncAll(Long memberId) {
+        List<CryptoExchangeSession> sessions = sessionRepository.findAllByMemberId(memberId);
         for (CryptoExchangeSession session : sessions) {
             try {
-                sync(session.getId());
+                sync(session.getId(), memberId);
             } catch (Exception ex) {
                 log.warn("Crypto exchange resync failed for {}: {}", session.getExchangeType(), ex.getMessage());
             }
@@ -159,8 +168,8 @@ public class CryptoExchangeSyncService {
     }
 
     @Transactional(readOnly = true)
-    public List<ExchangeStatusResponse> getStatus() {
-        return sessionRepository.findAllByOrderByCreatedAtAsc().stream()
+    public List<ExchangeStatusResponse> getStatus(Long memberId) {
+        return sessionRepository.findAllByMemberId(memberId).stream()
             .map(s -> new ExchangeStatusResponse(
                 s.getId(), s.getExchangeType(), s.getStatus(), s.getLastSyncedAt()))
             .toList();
@@ -170,11 +179,11 @@ public class CryptoExchangeSyncService {
         return exchangeAdapters.stream()
             .filter(a -> a.exchangeName().equalsIgnoreCase(type.name()))
             .findFirst()
-            .orElseThrow(() -> new SyncException("Aucun adapteur trouvé pour l'exchange : " + type));
+            .orElseThrow(() -> new SyncException("Aucun adapteur trouve pour l'exchange : " + type));
     }
 
-    private Account resolveAccount(String externalId, String exchangeName, BigDecimal balanceEur) {
-        Optional<Account> existing = accountRepository.findByExternalAccountId(externalId);
+    private Account resolveAccount(String externalId, String exchangeName, BigDecimal balanceEur, Long memberId) {
+        Optional<Account> existing = accountRepository.findByExternalAccountIdAndMemberId(externalId, memberId);
 
         Account account;
         if (existing.isPresent()) {
@@ -182,7 +191,10 @@ public class CryptoExchangeSyncService {
             account.setCurrentBalance(balanceEur);
             account.setLastSyncedAt(Instant.now());
         } else {
+            FamilyMember member = familyMemberRepository.findById(memberId)
+                .orElseThrow(() -> new ResourceNotFoundException("Family member not found: " + memberId));
             account = Account.builder()
+                .member(member)
                 .name(exchangeName + " Crypto")
                 .type(AccountType.CRYPTO)
                 .provider(exchangeName)

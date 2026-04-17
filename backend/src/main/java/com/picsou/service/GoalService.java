@@ -8,6 +8,7 @@ import com.picsou.dto.GoalRequest;
 import com.picsou.exception.ResourceNotFoundException;
 import com.picsou.model.Account;
 import com.picsou.model.BalanceSnapshot;
+import com.picsou.model.FamilyMember;
 import com.picsou.model.Goal;
 import com.picsou.model.GoalManualContribution;
 import com.picsou.model.GoalMonthOverride;
@@ -61,18 +62,18 @@ public class GoalService {
         this.historyService = historyService;
     }
 
-    public List<GoalProgressResponse> findAll() {
-        return goalRepository.findAllWithAccounts().stream()
+    public List<GoalProgressResponse> findAll(Long memberId) {
+        return goalRepository.findAllByMemberIdOrderByCreatedAtAsc(memberId).stream()
             .map(this::toProgressResponse)
             .toList();
     }
 
-    public GoalProgressResponse findById(Long id) {
-        return toProgressResponse(getOrThrow(id));
+    public GoalProgressResponse findById(Long id, Long memberId) {
+        return toProgressResponse(getOrThrow(id, memberId));
     }
 
     @Transactional
-    public GoalProgressResponse create(GoalRequest req) {
+    public GoalProgressResponse create(GoalRequest req, FamilyMember member) {
         List<Account> accounts = accountRepository.findAllById(req.accountIds());
         if (accounts.size() != req.accountIds().size()) {
             throw new IllegalArgumentException("One or more account IDs not found");
@@ -82,6 +83,7 @@ public class GoalService {
             .name(req.name())
             .targetAmount(req.targetAmount())
             .deadline(req.deadline())
+            .member(member)
             .accounts(new ArrayList<>(accounts))
             .build();
 
@@ -89,8 +91,8 @@ public class GoalService {
     }
 
     @Transactional
-    public GoalProgressResponse update(Long id, GoalRequest req) {
-        Goal goal = getOrThrow(id);
+    public GoalProgressResponse update(Long id, GoalRequest req, Long memberId) {
+        Goal goal = getOrThrow(id, memberId);
 
         List<Account> accounts = accountRepository.findAllById(req.accountIds());
         if (accounts.size() != req.accountIds().size()) {
@@ -106,9 +108,9 @@ public class GoalService {
     }
 
     @Transactional
-    public void delete(Long id) {
-        if (!goalRepository.existsById(id)) throw ResourceNotFoundException.goal(id);
-        goalRepository.deleteById(id);
+    public void delete(Long id, Long memberId) {
+        Goal goal = getOrThrow(id, memberId);
+        goalRepository.delete(goal);
     }
 
     // ─── Progress calculation ─────────────────────────────────────────────────
@@ -195,16 +197,16 @@ public class GoalService {
      * Build daily history for a goal using the shared HistoryService
      * (correct PnL with holdings cost basis + historical prices).
      */
-    public List<DashboardResponse.NetWorthPoint> getGoalHistory(Long goalId) {
-        Goal goal = getOrThrow(goalId);
+    public List<DashboardResponse.NetWorthPoint> getGoalHistory(Long goalId, Long memberId) {
+        Goal goal = getOrThrow(goalId, memberId);
         List<Long> accountIds = goal.getAccounts().stream().map(Account::getId).toList();
-        return historyService.buildHistory(accountIds, 12);
+        return historyService.buildHistory(accountIds, 12, memberId);
     }
 
     // ─── Monthly history ──────────────────────────────────────────────────────
 
-    public List<GoalMonthEntryResponse> getMonthlyEntries(Long goalId) {
-        Goal goal = getOrThrow(goalId);
+    public List<GoalMonthEntryResponse> getMonthlyEntries(Long goalId, Long memberId) {
+        Goal goal = getOrThrow(goalId, memberId);
         BigDecimal objective = toProgressResponse(goal).monthlyNeeded();
 
         Map<String, BigDecimal> overrideMap = overrideRepository.findByGoalId(goalId).stream()
@@ -233,8 +235,8 @@ public class GoalService {
     }
 
     @Transactional
-    public GoalMonthEntryResponse setMonthOverride(Long goalId, String yearMonth, BigDecimal amount) {
-        Goal goal = getOrThrow(goalId);
+    public GoalMonthEntryResponse setMonthOverride(Long goalId, String yearMonth, BigDecimal amount, Long memberId) {
+        Goal goal = getOrThrow(goalId, memberId);
         GoalMonthOverride entry = overrideRepository
             .findByGoalIdAndYearMonth(goalId, yearMonth)
             .orElseGet(GoalMonthOverride::new);
@@ -251,10 +253,10 @@ public class GoalService {
     }
 
     @Transactional
-    public GoalMonthEntryResponse deleteMonthOverride(Long goalId, String yearMonth) {
+    public GoalMonthEntryResponse deleteMonthOverride(Long goalId, String yearMonth, Long memberId) {
         overrideRepository.findByGoalIdAndYearMonth(goalId, yearMonth)
             .ifPresent(overrideRepository::delete);
-        Goal goal = getOrThrow(goalId);
+        Goal goal = getOrThrow(goalId, memberId);
         BigDecimal objective = toProgressResponse(goal).monthlyNeeded();
         BigDecimal actual = calculateActualForMonth(goal, YearMonth.parse(yearMonth));
         BigDecimal manualActual = manualContributionRepository.findByGoalIdAndYearMonth(goalId, yearMonth)
@@ -264,8 +266,8 @@ public class GoalService {
     }
 
     @Transactional
-    public GoalMonthEntryResponse setManualContribution(Long goalId, String yearMonth, BigDecimal amount) {
-        Goal goal = getOrThrow(goalId);
+    public GoalMonthEntryResponse setManualContribution(Long goalId, String yearMonth, BigDecimal amount, Long memberId) {
+        Goal goal = getOrThrow(goalId, memberId);
         GoalManualContribution entry = manualContributionRepository
             .findByGoalIdAndYearMonth(goalId, yearMonth)
             .orElseGet(GoalManualContribution::new);
@@ -283,10 +285,10 @@ public class GoalService {
     }
 
     @Transactional
-    public GoalMonthEntryResponse deleteManualContribution(Long goalId, String yearMonth) {
+    public GoalMonthEntryResponse deleteManualContribution(Long goalId, String yearMonth, Long memberId) {
         manualContributionRepository.findByGoalIdAndYearMonth(goalId, yearMonth)
             .ifPresent(manualContributionRepository::delete);
-        Goal goal = getOrThrow(goalId);
+        Goal goal = getOrThrow(goalId, memberId);
         BigDecimal objective = toProgressResponse(goal).monthlyNeeded();
         BigDecimal actual = calculateActualForMonth(goal, YearMonth.parse(yearMonth));
         BigDecimal override = overrideRepository.findByGoalIdAndYearMonth(goalId, yearMonth)
@@ -319,8 +321,8 @@ public class GoalService {
         return hasData ? total.setScale(2, RoundingMode.HALF_UP) : null;
     }
 
-    private Goal getOrThrow(Long id) {
-        return goalRepository.findById(id)
+    private Goal getOrThrow(Long id, Long memberId) {
+        return goalRepository.findByIdAndMemberId(id, memberId)
             .orElseThrow(() -> ResourceNotFoundException.goal(id));
     }
 }

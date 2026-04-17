@@ -2,8 +2,10 @@ package com.picsou.service;
 
 import com.picsou.model.Account;
 import com.picsou.model.BalanceSnapshot;
+import com.picsou.model.FamilyMember;
 import com.picsou.repository.AccountRepository;
 import com.picsou.repository.BalanceSnapshotRepository;
+import com.picsou.repository.FamilyMemberRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -24,6 +26,7 @@ public class SchedulerService {
 
     private final AccountRepository accountRepository;
     private final BalanceSnapshotRepository snapshotRepository;
+    private final FamilyMemberRepository familyMemberRepository;
     private final AccountService accountService;
     private final SyncService syncService;
     private final TradeRepublicSyncService trSyncService;
@@ -34,6 +37,7 @@ public class SchedulerService {
     public SchedulerService(
         AccountRepository accountRepository,
         BalanceSnapshotRepository snapshotRepository,
+        FamilyMemberRepository familyMemberRepository,
         AccountService accountService,
         SyncService syncService,
         TradeRepublicSyncService trSyncService,
@@ -43,6 +47,7 @@ public class SchedulerService {
     ) {
         this.accountRepository = accountRepository;
         this.snapshotRepository = snapshotRepository;
+        this.familyMemberRepository = familyMemberRepository;
         this.accountService = accountService;
         this.syncService = syncService;
         this.trSyncService = trSyncService;
@@ -52,27 +57,37 @@ public class SchedulerService {
     }
 
     /**
-     * Daily at 08:00: Re-sync all linked bank accounts (Enable Banking + Trade Republic).
+     * Daily at 08:00: Re-sync all linked bank accounts for every family member
+     * (Enable Banking + Trade Republic + Crypto Exchanges + Wallets).
      */
     @Scheduled(cron = "0 0 8 * * *")
     public void dailyBankSync() {
-        log.info("Starting daily bank sync");
-        try {
-            syncService.resyncAll();
-        } catch (Exception ex) {
-            log.error("Daily Enable Banking sync failed", ex);
-        }
-        trSyncService.resyncIfSessionActive();
+        log.info("Starting daily bank sync for all members");
+        List<FamilyMember> members = familyMemberRepository.findAllByOrderByCreatedAtAsc();
 
-        try {
-            cryptoExchangeSyncService.resyncAll();
-        } catch (Exception ex) {
-            log.error("Daily crypto exchange sync failed", ex);
-        }
-        try {
-            walletSyncService.resyncAll();
-        } catch (Exception ex) {
-            log.error("Daily wallet sync failed", ex);
+        for (FamilyMember member : members) {
+            Long memberId = member.getId();
+            log.info("Syncing member {}", memberId);
+
+            try {
+                syncService.resyncAll(memberId);
+            } catch (Exception ex) {
+                log.error("Daily Enable Banking sync failed for member {}", memberId, ex);
+            }
+
+            trSyncService.resyncIfSessionActive(memberId);
+
+            try {
+                cryptoExchangeSyncService.resyncAll(memberId);
+            } catch (Exception ex) {
+                log.error("Daily crypto exchange sync failed for member {}", memberId, ex);
+            }
+
+            try {
+                walletSyncService.resyncAll(memberId);
+            } catch (Exception ex) {
+                log.error("Daily wallet sync failed for member {}", memberId, ex);
+            }
         }
     }
 
@@ -84,23 +99,27 @@ public class SchedulerService {
     public void dailySnapshots() {
         log.info("Taking daily snapshots for all accounts");
         LocalDate today = LocalDate.now();
-        List<Account> allAccounts = accountRepository.findAllByOrderByCreatedAtAsc();
+        List<FamilyMember> members = familyMemberRepository.findAllByOrderByCreatedAtAsc();
 
-        for (Account account : allAccounts) {
-            Optional<BalanceSnapshot> existing = snapshotRepository.findByAccountIdAndDate(account.getId(), today);
-            if (existing.isEmpty()) {
-                BigDecimal balance = accountService.liveBalanceEur(account);
-                BigDecimal invested = accountService.calculateInvestedAmount(account);
-                snapshotRepository.save(BalanceSnapshot.builder()
-                    .account(account)
-                    .date(today)
-                    .balance(balance)
-                    .investedAmount(invested)
-                    .build());
+        for (FamilyMember member : members) {
+            List<Account> memberAccounts = accountRepository.findAllByMemberIdOrderByCreatedAtAsc(member.getId());
+
+            for (Account account : memberAccounts) {
+                Optional<BalanceSnapshot> existing = snapshotRepository.findByAccountIdAndDate(account.getId(), today);
+                if (existing.isEmpty()) {
+                    BigDecimal balance = accountService.liveBalanceEur(account);
+                    BigDecimal invested = accountService.calculateInvestedAmount(account);
+                    snapshotRepository.save(BalanceSnapshot.builder()
+                        .account(account)
+                        .date(today)
+                        .balance(balance)
+                        .investedAmount(invested)
+                        .build());
+                }
             }
         }
 
-        log.debug("Snapshots taken for {} accounts", allAccounts.size());
+        log.debug("Snapshots taken for all members");
     }
 
     /**
@@ -108,14 +127,18 @@ public class SchedulerService {
      */
     @Scheduled(fixedDelay = 3600000)
     public void refreshPrices() {
-        Set<String> tickers = accountRepository.findByTickerIsNotNull()
-            .stream()
-            .map(Account::getTicker)
-            .collect(Collectors.toSet());
+        List<FamilyMember> members = familyMemberRepository.findAllByOrderByCreatedAtAsc();
 
-        if (!tickers.isEmpty()) {
-            log.debug("Refreshing prices for tickers: {}", tickers);
-            priceService.refreshPrices(tickers);
+        for (FamilyMember member : members) {
+            Set<String> tickers = accountRepository.findByTickerIsNotNullAndMemberId(member.getId())
+                .stream()
+                .map(Account::getTicker)
+                .collect(Collectors.toSet());
+
+            if (!tickers.isEmpty()) {
+                log.debug("Refreshing prices for member {} tickers: {}", member.getId(), tickers);
+                priceService.refreshPrices(tickers);
+            }
         }
     }
 }

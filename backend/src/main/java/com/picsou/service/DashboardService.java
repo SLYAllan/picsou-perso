@@ -49,8 +49,8 @@ public class DashboardService {
         this.historyService = historyService;
     }
 
-    public DashboardResponse getDashboard() {
-        List<Account> accounts = accountRepository.findAllByOrderByCreatedAtAsc();
+    public DashboardResponse getDashboard(Long memberId) {
+        List<Account> accounts = accountRepository.findAllByMemberIdOrderByCreatedAtAsc(memberId);
 
         // Pre-load all holdings and group by account
         Map<Long, List<AccountHolding>> holdingsByAccount = new HashMap<>();
@@ -108,12 +108,12 @@ public class DashboardService {
 
         // Build history using shared HistoryService
         List<Long> allAccountIds = accounts.stream().map(Account::getId).toList();
-        List<NetWorthPoint> updatedHistory = historyService.buildHistory(allAccountIds, 12);
+        List<NetWorthPoint> updatedHistory = historyService.buildHistory(allAccountIds, 12, memberId);
 
         List<DistributionItem> distribution = buildDistribution(accounts, totalNetWorth, holdingsByAccount, false);
         List<DistributionItem> liabilities = buildDistribution(accounts, totalNetWorth, holdingsByAccount, true);
 
-        List<GoalProgressResponse> goals = goalRepository.findAllWithAccounts().stream()
+        List<GoalProgressResponse> goals = goalRepository.findAllByMemberIdOrderByCreatedAtAsc(memberId).stream()
             .map(goalService::toProgressResponse)
             .toList();
 

@@ -6,6 +6,7 @@ import com.picsou.dto.FinaryImportResultResponse;
 import com.picsou.dto.FinaryLoginRequest;
 import com.picsou.dto.FinaryPreviewResponse;
 import com.picsou.finary.FinaryApiSyncService;
+import com.picsou.service.UserContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,13 +20,14 @@ import org.springframework.web.bind.annotation.*;
 public class FinaryApiSyncController {
 
     private final FinaryApiSyncService finaryApiSyncService;
+    private final UserContext userContext;
 
     /**
      * Get current Finary connection status
      */
     @GetMapping("/status")
     public FinaryConnectionStatusResponse getStatus() {
-        return finaryApiSyncService.getConnectionStatus();
+        return finaryApiSyncService.getConnectionStatus(userContext.currentMemberId());
     }
 
     /**
@@ -33,7 +35,7 @@ public class FinaryApiSyncController {
      */
     @PostMapping("/login")
     public void login(@RequestBody FinaryLoginRequest request) {
-        finaryApiSyncService.login(request.email(), request.password());
+        finaryApiSyncService.login(request.email(), request.password(), userContext.currentMemberId());
     }
 
     /**
@@ -41,7 +43,7 @@ public class FinaryApiSyncController {
      */
     @DeleteMapping("/session")
     public ResponseEntity<Void> deleteSession() {
-        finaryApiSyncService.deleteSession();
+        finaryApiSyncService.deleteSession(userContext.currentMemberId());
         return ResponseEntity.noContent().build();
     }
 
@@ -50,7 +52,7 @@ public class FinaryApiSyncController {
      */
     @PostMapping("/api-sync/preview")
     public FinaryPreviewResponse apiSyncPreview(@RequestParam(required = false) String totp) {
-        return finaryApiSyncService.preview(totp);
+        return finaryApiSyncService.preview(totp, userContext.currentMemberId());
     }
 
     /**
@@ -58,6 +60,6 @@ public class FinaryApiSyncController {
      */
     @PostMapping("/api-sync/execute")
     public FinaryImportResultResponse apiSyncExecute(@RequestBody FinaryApiSyncExecuteRequest request) {
-        return finaryApiSyncService.execute(request.syncToken(), request.mappings());
+        return finaryApiSyncService.execute(request.syncToken(), request.mappings(), userContext.currentMemberId());
     }
 }

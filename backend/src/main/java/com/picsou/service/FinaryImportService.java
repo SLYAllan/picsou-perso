@@ -5,11 +5,11 @@ import com.picsou.finary.FinaryPersistenceHelper;
 import com.picsou.model.*;
 import com.picsou.repository.AccountRepository;
 import com.picsou.repository.BalanceSnapshotRepository;
+import com.picsou.repository.FamilyMemberRepository;
 import com.picsou.repository.TransactionRepository;
 import com.picsou.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -44,6 +44,7 @@ public class FinaryImportService {
     private final AccountRepository accountRepository;
     private final BalanceSnapshotRepository balanceSnapshotRepository;
     private final TransactionRepository transactionRepository;
+    private final FamilyMemberRepository familyMemberRepository;
     private final FinaryPersistenceHelper persistenceHelper;
     private final ConcurrentHashMap<String, ParsedFinaryData> cache = new ConcurrentHashMap<>();
 
@@ -56,7 +57,7 @@ public class FinaryImportService {
     /**
      * Parse xlsx file and return a preview with mapping suggestions
      */
-    public FinaryPreviewResponse preview(MultipartFile file) {
+    public FinaryPreviewResponse preview(MultipartFile file, Long memberId) {
         try {
             Workbook workbook = WorkbookFactory.create(file.getInputStream());
             ParsedFinaryData parsed = parseXlsx(workbook);
@@ -78,7 +79,7 @@ public class FinaryImportService {
                 ))
                 .collect(Collectors.toList());
 
-            List<AccountResponse> existing = accountRepository.findAll().stream()
+            List<AccountResponse> existing = accountRepository.findAllByMemberIdOrderByCreatedAtAsc(memberId).stream()
                 .map(a -> AccountResponse.from(a, a.getCurrentBalance()))
                 .collect(Collectors.toList());
 
@@ -95,11 +96,14 @@ public class FinaryImportService {
      * Execute the import: create/map accounts, reconstruct balance snapshots, import transactions
      */
     @Transactional
-    public FinaryImportResultResponse executeImport(FinaryImportRequest req) {
+    public FinaryImportResultResponse executeImport(FinaryImportRequest req, Long memberId) {
         ParsedFinaryData parsed = cache.get(req.fileToken());
         if (parsed == null) {
-            throw new IllegalArgumentException("Preview expired or invalid — please re-upload the file");
+            throw new IllegalArgumentException("Preview expired or invalid -- please re-upload the file");
         }
+
+        FamilyMember member = familyMemberRepository.findById(memberId)
+            .orElseThrow(() -> new ResourceNotFoundException("Family member not found: " + memberId));
 
         int accountsCreated = 0;
         int accountsMapped = 0;
@@ -122,7 +126,7 @@ public class FinaryImportService {
                 accountsSkipped++;
                 continue;
             } else if (mapping.action() == com.picsou.dto.FinaryMappingAction.MAP_EXISTING) {
-                account = accountRepository.findById(mapping.targetAccountId())
+                account = accountRepository.findByIdAndMemberId(mapping.targetAccountId(), memberId)
                     .orElseThrow(() -> new IllegalArgumentException(
                         "Account " + mapping.targetAccountId() + " not found"
                     ));
@@ -133,6 +137,7 @@ public class FinaryImportService {
                 String externalId = "finary_" + finaryAcc.category() + "_" + slug;
 
                 account = Account.builder()
+                    .member(member)
                     .name(det.name())
                     .type(det.type())
                     .provider(det.provider())
