@@ -29,6 +29,7 @@ import {
   usePreviewFinaryApi,
   useImportFinary,
   useExecuteFinaryApiSync,
+  useCheckFinaryTotp,
 } from '@/features/sync/hooks'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
 import {
@@ -691,6 +692,7 @@ function FinaryWizard({ onDone, onBack, onPending }: { onDone: () => void; onBac
   const previewApiMutation = usePreviewFinaryApi()
   const importMutation = useImportFinary()
   const executeApiMutation = useExecuteFinaryApiSync()
+  const checkTotpMutation = useCheckFinaryTotp()
 
   // --- Login ---
 
@@ -698,7 +700,6 @@ function FinaryWizard({ onDone, onBack, onPending }: { onDone: () => void; onBac
     e.preventDefault()
     if (!email || !password) return
     setLoading(true)
-    onPending(true)
     setError(null)
     loginMutation.mutate(
       { email, password },
@@ -706,8 +707,20 @@ function FinaryWizard({ onDone, onBack, onPending }: { onDone: () => void; onBac
         onSuccess: () => {
           setEmail('')
           setPassword('')
-          // Now trigger preview with stored credentials
-          handleApiSyncPreview()
+          checkTotpMutation.mutate(undefined, {
+            onSuccess: ({ totpRequired }) => {
+              setLoading(false)
+              if (totpRequired) {
+                setTotpRequired(true)
+              } else {
+                handleApiSyncPreview()
+              }
+            },
+            onError: (err: any) => {
+              setLoading(false)
+              setError(err.response?.data?.detail || t('common.retry'))
+            },
+          })
         },
         onError: () => {
           setLoading(false)
@@ -965,6 +978,11 @@ function FinaryWizard({ onDone, onBack, onPending }: { onDone: () => void; onBac
           ) : (
             /* Connected: Sync + TOTP */
             <div className="space-y-3">
+              {connectionStatus?.maskedEmail && (
+                <p className="text-xs text-muted-foreground text-center">
+                  {connectionStatus.maskedEmail}
+                </p>
+              )}
               <Button onClick={handleSync} disabled={loading} className="w-full" size="sm">
                 {loading ? (
                   <><Loader2 className="size-3.5 animate-spin" />{t('sync.finary.syncing')}</>
