@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ACCOUNT_COLORS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
+import { extractErrorMessage } from '@/lib/errors'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -219,7 +220,7 @@ export function FinaryTab() {
       },
       onError: (err: unknown) => {
         setLoading(false)
-        setError(err instanceof Error ? err.message : t('common.retry'))
+        setError(extractErrorMessage(err, t('common.retry')))
       },
     })
   }
@@ -239,7 +240,7 @@ export function FinaryTab() {
       },
       onError: (err: unknown) => {
         setLoading(false)
-        setError(err instanceof Error ? err.message : t('common.retry'))
+        setError(extractErrorMessage(err, t('common.retry')))
       },
     })
   }

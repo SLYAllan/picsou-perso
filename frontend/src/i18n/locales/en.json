@@ -29,7 +29,9 @@
     "settings": "Settings",
     "settings.desc": "Preferences & account",
     "account": "My account",
-    "logout": "Logout"
+    "logout": "Logout",
+    "admin": "Administration",
+    "admin.desc": "Instance settings"
   },
   "auth": {
     "login": "Sign in",
@@ -44,12 +46,15 @@
   "dashboard": {
     "title": "Dashboard",
     "netWorth": "Total net worth",
+    "grossWorth": "Gross worth",
+    "financialWorth": "Financial assets",
     "syncAccounts": "Sync accounts",
     "invested": "Capital invested",
     "netWorthChange": "gain / loss",
+    "marketsClosed": "Markets are closed — no intraday data available",
     "distribution": "Distribution",
     "ranges": {
-      "1D": "1D",
+      "24H": "24H",
       "7D": "7D",
       "1M": "1M",
       "3M": "3M",
@@ -164,6 +169,18 @@
     "totalValue": "Total:",
     "noHoldings": "No holdings"
   },
+  "holdings": {
+    "totalValue": "Total value",
+    "unitPrice": "Unit price",
+    "pnl": "Gain / Loss",
+    "quantity": "Quantity",
+    "account": "Account",
+    "lastUpdated": "Last updated",
+    "type": "Type",
+    "assetPrice": "Asset price",
+    "myPosition": "My position",
+    "evolution": "Evolution"
+  },
   "goals": {
     "title": "Goals",
     "addGoal": "New goal",
@@ -254,7 +271,18 @@
       "clearSession": "Disconnect",
       "noSession": "No active session",
       "sessionActive": "Active session",
-      "expiresAt": "Expires on"
+      "expiresAt": "Expires on",
+      "errors": {
+        "tooManyAttempts": "Too many attempts. Please wait a few minutes.",
+        "invalidPhoneNumber": "Invalid phone number.",
+        "invalidPin": "Incorrect PIN.",
+        "authenticationFailed": "Trade Republic authentication failed.",
+        "serverError": "Trade Republic server error. Please try again.",
+        "phoneNumberRequired": "Phone number is required.",
+        "pinRequired": "PIN is required.",
+        "validationFailed": "Invalid data.",
+        "unknownError": "An unexpected error occurred."
+      }
     },
     "exchanges": {
       "title": "Exchanges",
@@ -263,6 +291,7 @@
       "apiKey": "API Key",
       "apiSecret": "API Secret",
       "connect": "Connect",
+      "connectError": "Failed to connect exchange. Check your API key and secret.",
       "sync": "Synchronize",
       "remove": "Remove",
       "removeConfirm": "Remove this exchange?",
@@ -276,6 +305,7 @@
       "address": "Address",
       "label": "Label",
       "track": "Track",
+      "connectError": "Failed to add wallet. Check the address and try again.",
       "sync": "Synchronize",
       "remove": "Remove",
       "removeConfirm": "Remove this wallet?",
@@ -330,6 +360,26 @@
       "openFinary": "Open Finary page to sync",
       "trManualInfo": "Trade Republic is the only bank that requires manual re-authentication. You will need to re-enter your phone number and PIN each time you sync.",
       "trSlowWarning": "Connection may take a few moments, this is normal."
+    },
+    "bourso": {
+      "title": "BoursoBank",
+      "customerId": "Client number",
+      "password": "Password",
+      "mfaCode": "MFA code",
+      "connect": "Connect",
+      "sync": "Synchronize",
+      "clearSession": "Disconnect",
+      "noSession": "No active session",
+      "sessionActive": "Active session",
+      "expiresAt": "Expires on",
+      "mfaPrompt": "A code was sent via {{mfaType}} to {{contact}}",
+      "errors": {
+        "tooManyAttempts": "Too many attempts. Please wait.",
+        "invalidCredentials": "Invalid credentials.",
+        "invalidMfaCode": "Invalid or expired MFA code.",
+        "sessionExpired": "Session expired. Please reconnect.",
+        "serverError": "BoursoBank server error. Please try again."
+      }
     }
   },
   "settings": {
@@ -355,7 +405,45 @@
     "logout": "Sign out",
     "about": "About",
     "aboutDescription": "Application information",
-    "version": "Version"
+    "version": "Version",
+    "adminSection": "Administration",
+    "adminDescription": "Manage Picsou instance settings",
+    "adminButton": "Open administration"
+  },
+  "admin": {
+    "title": "Administration",
+    "security": {
+      "title": "Security",
+      "description": "Allowed CORS origins and cookie security",
+      "originsLabel": "Allowed origins",
+      "originsHint": "URLs from which Picsou is accessible",
+      "originAdd": "Add origin",
+      "originRemove": "Remove",
+      "secureCookiesLabel": "Secure cookies (HTTPS)",
+      "secureCookiesHint": "Enable only if Picsou is served over HTTPS",
+      "save": "Save",
+      "saving": "Saving...",
+      "saved": "Saved"
+    },
+    "enableBanking": {
+      "title": "Enable Banking",
+      "description": "Enable Banking API credentials",
+      "applicationId": "Application ID",
+      "keyId": "Key ID",
+      "redirectUri": "Redirect URI",
+      "save": "Save",
+      "saving": "Saving...",
+      "saved": "Saved"
+    },
+    "integrations": {
+      "title": "Integrations",
+      "description": "Enable or disable data connectors",
+      "enablebanking": "Enable Banking",
+      "boursobank": "BoursoBank",
+      "traderepublic": "Trade Republic",
+      "finary": "Finary",
+      "crypto": "Crypto"
+    }
   },
   "error": {
     "connecting": "Connecting to server...",
@@ -369,5 +457,236 @@
     "crashTitle": "Something went wrong",
     "crashDesc": "An unexpected error occurred. Please reload the page.",
     "reload": "Reload page"
+  },
+  "setup": {
+    "a11y": {
+      "skipToContent": "Skip to main content"
+    },
+    "progress": {
+      "label": "Step {{current}} of {{total}}",
+      "bar": "Setup progress: step {{current}} of {{total}}"
+    },
+    "steps": {
+      "hello": "Welcome",
+      "admin": "Your account",
+      "security": "Security",
+      "integrations": "Integrations",
+      "done": "All set"
+    },
+    "greetings": [
+      "Hello",
+      "Bonjour",
+      "こんにちは",
+      "Hola",
+      "Ciao",
+      "Olá",
+      "Hallo",
+      "你好",
+      "مرحبا",
+      "Привет",
+      "नमस्ते",
+      "안녕하세요"
+    ],
+    "intro": {
+      "surtitle": "WELCOME",
+      "title": "Welcome to Picsou.",
+      "subtitle": "Let's set you up in about 2 minutes.",
+      "cta": "Get started",
+      "language": "Language"
+    },
+    "admin": {
+      "surtitle": "YOUR ACCOUNT",
+      "title": "Create your admin account",
+      "subtitle": "This is the first — and only required — account on Picsou. You can invite others from Settings later.",
+      "username": "Username",
+      "usernameHint": "Letters, numbers, dot, underscore, hyphen.",
+      "password": "Password",
+      "passwordHint": "At least 8 characters.",
+      "displayName": "Display name",
+      "displayNameHint": "How your name appears across the app.",
+      "avatarColor": "Avatar color",
+      "avatarColorInvalid": "Pick one of the offered colors.",
+      "cta": "Create account",
+      "creating": "Creating...",
+      "strength": {
+        "weak": "Weak",
+        "fair": "Fair",
+        "good": "Good",
+        "strong": "Strong"
+      }
+    },
+    "security": {
+      "surtitle": "SECURITY",
+      "title": "Security settings",
+      "subtitle": "We've pre-filled everything based on how you're connecting right now. You can adjust later from Settings.",
+      "originsLabel": "Allowed origins",
+      "originsHint": "URLs that are allowed to talk to Picsou's API.",
+      "originAdd": "Add origin",
+      "originRemove": "Remove",
+      "originRequired": "At least one origin is required.",
+      "originFormat": "Must look like http(s)://host[:port]",
+      "secureCookiesLabel": "Secure cookies",
+      "secureCookiesHint": "Keep this on when Picsou is served over HTTPS.",
+      "cta": "Continue",
+      "saving": "Saving..."
+    },
+    "integrations": {
+      "surtitle": "INTEGRATIONS",
+      "title": "Pick your integrations",
+      "subtitle": "Choose what to enable now. You can always change this later from Settings → Integrations.",
+      "continue": "Continue",
+      "skipAll": "Skip all — I'll configure later",
+      "cards": {
+        "enablebanking": {
+          "title": "Enable Banking",
+          "description": "Connect Revolut, BoursoBank, Trade Republic and 2000+ European banks via PSD2. Takes about 5 minutes — we'll guide you."
+        },
+        "boursobank": {
+          "title": "BoursoBank (sidecar)",
+          "description": "Direct sync via the bundled bourso-auth container. No external account needed."
+        },
+        "traderepublic": {
+          "title": "Trade Republic",
+          "description": "Sync your Trade Republic portfolio using your login. You'll add credentials when you create the account."
+        },
+        "finary": {
+          "title": "Finary",
+          "description": "Import holdings and auto-sync with your Finary account. TOTP is handled at add-time."
+        },
+        "crypto": {
+          "title": "Crypto exchanges",
+          "description": "Track Binance and friends via read-only API keys, encrypted at rest."
+        }
+      },
+      "hint": {
+        "none": "Nothing to enable now? That's fine — you can skip and configure everything later.",
+        "some": "{{count}} integration selected. We'll walk you through each one.",
+        "some_other": "{{count}} integrations selected. We'll walk you through each one."
+      }
+    },
+    "enablebanking": {
+      "surtitle": "ENABLE BANKING",
+      "substep": "Step {{current}} of {{total}} — Enable Banking",
+      "skip": "Skip this integration",
+      "back": "Back",
+      "continue": "Continue",
+      "appIdFormat": "The Application ID doesn't look right — it should be a 32–36 character UUID.",
+      "keyIdFormat": "The Key ID doesn't look right — it should be a 32–36 character UUID.",
+      "redirectFormat": "Must look like http(s)://host[:port]/path",
+      "explain": {
+        "title": "What is Enable Banking?",
+        "body": "Enable Banking is a free, PSD2-regulated aggregator that lets Picsou talk to European banks on your behalf. It's audited and free for personal use.",
+        "haveAccount": "I already have an account",
+        "needAccount": "I need to create one",
+        "signupOpened": "Done creating your account?",
+        "continueAfterSignup": "Yes, continue",
+        "psd2Popover": "What is PSD2?",
+        "psd2Body": "PSD2 is the EU regulation that lets licensed aggregators read your bank account with your consent. Your credentials never leave your bank."
+      },
+      "creds": {
+        "title": "Paste your IDs",
+        "body": "In your Enable Banking dashboard, create an application named \"Picsou\", then copy the two values it gives you.",
+        "applicationId": "Application ID",
+        "keyId": "Key ID"
+      },
+      "keypair": {
+        "modeGenerate": "Generate a key pair",
+        "modeImport": "I already have an EB .pem",
+        "title": "We generate your key pair",
+        "body": "Picsou generates an RSA-2048 key pair on the server. The private half never leaves your machine; you upload the public half to Enable Banking.",
+        "generating": "Generating your key pair...",
+        "copy": "Copy public key",
+        "copied": "Copied!",
+        "download": "Download public.pem",
+        "uploadInstruction": "Now in your EB dashboard → your app → Public key → paste this block.",
+        "uploadedCta": "I've uploaded it — continue",
+        "error": "We couldn't generate a key pair. Please retry.",
+        "importTitle": "Import your Enable Banking private key",
+        "importBody": "Enable Banking gave you a .pem file when you created your application. Upload it here — Picsou derives the public key from it for verification.",
+        "chooseFile": "Choose .pem file",
+        "orPaste": "or paste the contents directly",
+        "importCta": "Import key",
+        "importing": "Importing...",
+        "importSuccess": "Key imported. Derived public key:",
+        "importError": "Could not read the key. Make sure it's a PKCS#8 .pem file from Enable Banking."
+      },
+      "redirect": {
+        "title": "Add this redirect URI",
+        "body": "Add this exact URL to your Enable Banking app's \"Allowed redirect URIs\" list.",
+        "copy": "Copy URL",
+        "copied": "Copied!",
+        "addedCta": "Added — test my setup"
+      },
+      "test": {
+        "title": "Test your connection",
+        "body": "We'll make a quick authenticated call to Enable Banking to make sure everything lines up.",
+        "run": "Run test",
+        "running": "Testing...",
+        "success": "Enable Banking is ready!",
+        "retry": "Retry test",
+        "backToPrevious": "Back to previous step",
+        "hints": {
+          "invalid_application_id": "The Application ID doesn't match what Enable Banking has on file. Double-check it on step 2.",
+          "invalid_key_id": "The Key ID doesn't match. It's under \"Keys\" in your EB app dashboard.",
+          "public_key_not_uploaded": "Your public key isn't uploaded yet — go back to step 3, upload it, then retry.",
+          "redirect_uri_mismatch": "The redirect URI isn't whitelisted on Enable Banking's side. Re-check step 4.",
+          "network": "We couldn't reach Enable Banking. Check your network and try again.",
+          "unknown": "Something went wrong. Open the server logs if you need more detail."
+        }
+      }
+    },
+    "bourso": {
+      "surtitle": "BOURSOBANK SIDECAR",
+      "title": "Check the sidecar",
+      "body": "Picsou ships with a bourso-auth container that syncs your BoursoBank accounts. We'll ping it to make sure it's reachable.",
+      "pinging": "Checking the sidecar...",
+      "ok": "Sidecar is up and ready.",
+      "downTitle": "We couldn't reach the sidecar.",
+      "downHint": "Make sure the bourso-auth container is running. Docker Compose starts it by default.",
+      "advanced": "Advanced: custom URL",
+      "url": "Sidecar URL",
+      "retry": "Retry",
+      "continue": "Continue",
+      "skip": "Skip for now"
+    },
+    "tr": {
+      "surtitle": "TRADE REPUBLIC",
+      "title": "Trade Republic is ready to go.",
+      "body": "There's nothing to configure here — you'll sign in with your Trade Republic credentials when you add the account from Picsou.",
+      "tip": "Head to Accounts → Add account → Trade Republic once setup is done.",
+      "cta": "Got it",
+      "skip": "Don't enable Trade Republic"
+    },
+    "finary": {
+      "surtitle": "FINARY",
+      "title": "Finary is ready to go.",
+      "body": "Nothing to configure now — you'll sign in with your Finary account when you add it from Picsou. TOTP codes are handled at add-time if your account requires them.",
+      "tip": "Head to Accounts → Add account → Finary once setup is done.",
+      "cta": "Got it",
+      "skip": "Don't enable Finary"
+    },
+    "crypto": {
+      "surtitle": "CRYPTO EXCHANGES",
+      "title": "Encrypt your exchange API keys",
+      "body": "Your Binance / Kraken / Coinbase API keys are encrypted at rest. Picsou can generate the encryption key for you — it stays on your disk and is never transmitted.",
+      "generateCta": "Generate a key for me",
+      "generating": "Generating...",
+      "existed": "Your encryption key already exists on disk — nothing to do.",
+      "created": "Encryption key generated.",
+      "pathLabel": "Stored at",
+      "continue": "Continue",
+      "skip": "Skip for now",
+      "error": "We couldn't write the encryption key. Check the container logs."
+    },
+    "complete": {
+      "title": "Picsou is ready.",
+      "subtitle": "Welcome, {{name}}.",
+      "summaryTitle": "What's enabled",
+      "noIntegrations": "You didn't enable any integrations yet — that's fine, you can do that anytime from Settings → Integrations.",
+      "completing": "Wrapping up...",
+      "cta": "Open my dashboard",
+      "loginFallback": "Go to login",
+      "loggingIn": "Logging you in..."
+    }
   }
 }

@@ -88,3 +88,28 @@ Logged at WARN level so upstream flakiness is trackable without alert fatigue.
 - **Never create an `AppException` base class** — each exception type extends `RuntimeException` directly.
 - **Never expose stack traces to clients** — the generic 500 handler returns "An unexpected error occurred".
 - **Never throw business exceptions from adapters** — wrap external errors in `SyncException`.
+
+## Frontend display
+
+All user-facing error strings derived from an Axios error MUST go through
+`extractErrorMessage(err, fallback)` in `frontend/src/lib/errors.ts`. It walks the
+Axios error in priority order: `response.data.detail` (Spring `ProblemDetail`,
+with embedded-JSON detection on adapter strings of the form
+`"Enable Banking auth failed: {...}"`) → `response.data.message` → `err.message`
+(skipping the Axios boilerplate `"Request failed with status code N"`) →
+caller-supplied `fallback`.
+
+Don't:
+
+- Render `err.message` directly — it is usually `"Request failed with status code N"`.
+- Render `err.response?.data?.detail` directly — adapter strings may end in a JSON
+  blob and dump it to the user.
+- Hand-roll a regex on the error body — nested upstream JSON objects break naive
+  patterns. The helper uses `indexOf('{') + slice + JSON.parse` for that reason.
+
+Status-to-message mapping (as in `TradeRepublicTab.formatAuthError` and
+`BoursoTab.formatError`) must happen **before** the helper — only the unmapped tail
+should fall through. Pages that need a domain-specific default pass it as the
+`fallback` argument (e.g. `t('sync.tr.errors.unknownError')`).
+
+Full feature note: [`docs/features/frontend-error-display.md`](../features/frontend-error-display.md).

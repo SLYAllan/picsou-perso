@@ -22,6 +22,9 @@
 | 2026-04-05 | [Component-local state for UI filters](./decisions/2026-04-05-component-local-state-for-ui-filters.md) | Active |
 | 2026-04-08 | [Mandatory encryption key at startup](./decisions/2026-04-08-mandatory-encryption-key.md) | Active |
 | 2026-04-08 | [CSS relative color syntax for theme-adaptive brightness](./decisions/2026-04-08-css-relative-color-syntax.md) | Active |
+| 2026-04-23 | [Two-layer bootstrap for first-launch Setup Wizard](./decisions/2026-04-23-first-launch-wizard.md) | Active |
+| 2026-04-25 | [tr-auth as isolated sidecar with Chromium-only image](./decisions/2026-04-25-tr-auth-sidecar-slim-image.md) | Active |
+| 2026-04-25 | [Admin page reuses SetupService writers behind a role-gated controller](./decisions/2026-04-25-admin-page-reuses-setup-writers.md) | Active |
 
 ## Feature notes
 
@@ -31,8 +34,8 @@
 | Demo mode | 2026-04-08 | [demo-mode.md](./features/demo-mode.md) |
 | Theme (dark / light / system) | 2026-04-08 | [theme-persistence.md](./features/theme-persistence.md) |
 | Dashboard — Time range isolation | 2026-04-13 | [dashboard-time-range-isolation.md](./features/dashboard-time-range-isolation.md) |
-| Bank sync | 2026-04-04 | [bank-sync.md](./features/bank-sync.md) |
-| Trade Republic | 2026-04-12 | [trade-republic.md](./features/trade-republic.md) |
+| Bank sync | 2026-04-25 | [bank-sync.md](./features/bank-sync.md) |
+| Trade Republic | 2026-04-25 | [trade-republic.md](./features/trade-republic.md) |
 | Trade Republic — Holdings deduplication | 2026-04-05 | [trade-republic-holding-deduplication.md](./features/trade-republic-holding-deduplication.md) |
 | ISIN → Ticker conversion | 2026-04-13 | [ISIN_TO_TICKER_CONVERSION.md](./features/ISIN_TO_TICKER_CONVERSION.md) |
 | Encryption at rest | 2026-04-08 | [encryption-at-rest.md](./features/encryption-at-rest.md) |
@@ -45,12 +48,15 @@
 | Manual transactions + holdings derivation | 2026-04-21 | [manual-transactions.md](./features/manual-transactions.md) |
 | BoursoBank sync | 2026-04-21 | [bourso-bank.md](./features/bourso-bank.md) |
 | Accounts overview (PnL chart + summary card + filters) | 2026-04-13 | [accounts-overview.md](./features/accounts-overview.md) |
-| Add Account modal (unified sync + manual) | 2026-04-09 | [add-account-modal.md](./features/add-account-modal.md) |
-| Docker deployment (all-in-one image) | 2026-04-16 | [docker-deployment.md](./features/docker-deployment.md) |
+| Add Account modal (unified sync + manual) | 2026-04-25 | [add-account-modal.md](./features/add-account-modal.md) |
+| Docker deployment | 2026-04-25 | [docker-deployment.md](./features/docker-deployment.md) |
 | Navigation (sidebar + mobile bottom nav) | 2026-04-13 | [sidebar-navigation.md](./features/sidebar-navigation.md) |
 | Multi-account family system | 2026-04-22 | [multi-account-family.md](./features/multi-account-family.md) |
 | CORS & cookie security | 2026-04-22 | [security-cors-cookies.md](./features/security-cors-cookies.md) |
 | 24H Intraday net worth chart | 2026-04-18 | [intraday-chart.md](./features/intraday-chart.md) |
+| First-launch Setup Wizard | 2026-04-24 | [setup-wizard.md](./features/setup-wizard.md) |
+| Admin page (instance settings) | 2026-04-25 | [admin-page.md](./features/admin-page.md) |
+| Frontend error display (`extractErrorMessage`) | 2026-04-25 | [frontend-error-display.md](./features/frontend-error-display.md) |
 
 ## Conventions
 

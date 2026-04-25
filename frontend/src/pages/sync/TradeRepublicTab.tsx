@@ -17,6 +17,7 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 import type { TrSessionStatus } from '@/types/api'
+import { extractErrorMessage } from '@/lib/errors'
 
 type AuthState = 'IDLE' | 'AWAITING_TAN' | 'CONNECTED' | 'ERROR'
 
@@ -62,7 +63,7 @@ export function TradeRepublicTab() {
     }
 
     // Fallback
-    return error.message || t('sync.tr.errors.unknownError')
+    return extractErrorMessage(error, t('sync.tr.errors.unknownError'))
   }
 
   const [authState, setAuthState] = useState<AuthState>('IDLE')

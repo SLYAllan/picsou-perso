@@ -25,6 +25,7 @@ import {
   Check,
   X,
   Pencil,
+  Shield,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { api } from '@/lib/api-client'
@@ -289,6 +290,24 @@ export function SettingsPage() {
           <ChevronRight className="size-4 text-muted-foreground" />
         </button>
       </SectionCard>
+
+      {/* Admin (admin-only) ----------------------------------------------- */}
+      {user?.role === 'ADMIN' && (
+        <SectionCard
+          icon={Shield}
+          title={t('settings.adminSection')}
+          description={t('settings.adminDescription')}
+        >
+          <button
+            type="button"
+            onClick={() => navigate('/admin')}
+            className="flex w-full items-center justify-between rounded-lg p-2 text-sm font-medium transition-colors hover:bg-muted"
+          >
+            <span>{t('settings.adminButton')}</span>
+            <ChevronRight className="size-4 text-muted-foreground" />
+          </button>
+        </SectionCard>
+      )}
 
       {/* About ------------------------------------------------------------ */}
       <SectionCard

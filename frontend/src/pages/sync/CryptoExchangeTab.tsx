@@ -19,6 +19,7 @@ import {
   EyeOff,
 } from 'lucide-react'
 import type { ExchangeStatus, ExchangeType } from '@/types/api'
+import { extractErrorMessage } from '@/lib/errors'
 
 function useExchanges() {
   return useQuery<ExchangeStatus[]>({
@@ -125,7 +126,7 @@ export function CryptoExchangeTab() {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
-        <p className="text-sm text-muted-foreground">{error.message}</p>
+        <p className="text-sm text-muted-foreground">{extractErrorMessage(error)}</p>
         <Button variant="outline" onClick={() => refetch()} className="mt-4">
           {t('common.retry', 'Retry')}
         </Button>

@@ -20,3 +20,10 @@ export function PublicOnly({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>
 }
+
+export function RequireAdmin({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore(s => s.user)
+  if (!user) return <Navigate to="/login" replace />
+  if (user.role !== 'ADMIN') return <Navigate to="/error/403" replace />
+  return <>{children}</>
+}

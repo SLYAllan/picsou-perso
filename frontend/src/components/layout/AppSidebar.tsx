@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   LayoutDashboard,
@@ -9,6 +9,7 @@ import {
   Languages,
   ChevronsUpDown,
   Users,
+  Shield,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -84,6 +85,7 @@ const NAV_ITEMS = [
 
 export function AppSidebar() {
   const { t, i18n } = useTranslation()
+  const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const demoMode = useAppStore((s) => s.demoMode)
   const { activeMemberId, setActiveMember } = useProfileStore()
@@ -206,6 +208,15 @@ export function AppSidebar() {
                   <span className="truncate">{m.displayName}</span>
                 </DropdownMenuItem>
               ))}
+              <DropdownMenuSeparator />
+            </>
+          )}
+          {isAdmin && (
+            <>
+              <DropdownMenuItem onClick={() => navigate('/admin')}>
+                <Shield className="mr-2 size-4" />
+                {t('nav.admin')}
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
             </>
           )}

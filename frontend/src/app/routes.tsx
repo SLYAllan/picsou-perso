@@ -1,8 +1,10 @@
 import { createBrowserRouter } from 'react-router-dom'
 import { lazy, Suspense } from 'react'
-import { RequireAuth, PublicOnly } from '@/features/auth/guards'
+import { RequireAuth, PublicOnly, RequireAdmin } from '@/features/auth/guards'
+import { RequireSetup, SetupOnly } from '@/features/setup/guards'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { LoadingSkeleton } from '@/components/shared/LoadingSkeleton'
+import '@/pages/setup/setup.css'
 
 const LoginPage = lazy(() =>
   import('@/pages/login/LoginPage').then((m) => ({ default: m.LoginPage }))
@@ -45,6 +47,53 @@ const FamilyDashboardPage = lazy(() =>
 )
 const FamilySettingsPage = lazy(() =>
   import('@/pages/settings/FamilySettingsPage').then((m) => ({ default: m.FamilySettingsPage }))
+)
+const AdminPage = lazy(() =>
+  import('@/pages/admin/AdminPage').then((m) => ({ default: m.AdminPage }))
+)
+
+const SetupLayout = lazy(() =>
+  import('@/pages/setup/SetupLayout').then((m) => ({ default: m.SetupLayout }))
+)
+const SetupStepIntro = lazy(() =>
+  import('@/pages/setup/SetupStepIntro').then((m) => ({ default: m.SetupStepIntro }))
+)
+const SetupStepAdmin = lazy(() =>
+  import('@/pages/setup/SetupStepAdmin').then((m) => ({ default: m.SetupStepAdmin }))
+)
+const SetupStepSecurity = lazy(() =>
+  import('@/pages/setup/SetupStepSecurity').then((m) => ({ default: m.SetupStepSecurity }))
+)
+const SetupStepIntegrations = lazy(() =>
+  import('@/pages/setup/SetupStepIntegrations').then((m) => ({ default: m.SetupStepIntegrations }))
+)
+const SetupStepComplete = lazy(() =>
+  import('@/pages/setup/SetupStepComplete').then((m) => ({ default: m.SetupStepComplete }))
+)
+const SetupStepEnableBanking = lazy(() =>
+  import('@/pages/setup/integrations/SetupStepEnableBanking').then((m) => ({
+    default: m.SetupStepEnableBanking,
+  }))
+)
+const SetupStepBoursoBank = lazy(() =>
+  import('@/pages/setup/integrations/SetupStepBoursoBank').then((m) => ({
+    default: m.SetupStepBoursoBank,
+  }))
+)
+const SetupStepTradeRepublic = lazy(() =>
+  import('@/pages/setup/integrations/SetupStepTradeRepublic').then((m) => ({
+    default: m.SetupStepTradeRepublic,
+  }))
+)
+const SetupStepFinary = lazy(() =>
+  import('@/pages/setup/integrations/SetupStepFinary').then((m) => ({
+    default: m.SetupStepFinary,
+  }))
+)
+const SetupStepCrypto = lazy(() =>
+  import('@/pages/setup/integrations/SetupStepCrypto').then((m) => ({
+    default: m.SetupStepCrypto,
+  }))
 )
 
 const NotFoundPage = lazy(() =>
@@ -89,11 +138,35 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: '/setup',
+    element: (
+      <SetupOnly>
+        <SuspensePage>
+          <SetupLayout />
+        </SuspensePage>
+      </SetupOnly>
+    ),
+    children: [
+      { index: true, element: <SuspensePage><SetupStepIntro /></SuspensePage> },
+      { path: 'admin', element: <SuspensePage><SetupStepAdmin /></SuspensePage> },
+      { path: 'security', element: <SuspensePage><SetupStepSecurity /></SuspensePage> },
+      { path: 'integrations', element: <SuspensePage><SetupStepIntegrations /></SuspensePage> },
+      { path: 'integrations/enablebanking', element: <SuspensePage><SetupStepEnableBanking /></SuspensePage> },
+      { path: 'integrations/boursobank', element: <SuspensePage><SetupStepBoursoBank /></SuspensePage> },
+      { path: 'integrations/traderepublic', element: <SuspensePage><SetupStepTradeRepublic /></SuspensePage> },
+      { path: 'integrations/finary', element: <SuspensePage><SetupStepFinary /></SuspensePage> },
+      { path: 'integrations/crypto', element: <SuspensePage><SetupStepCrypto /></SuspensePage> },
+      { path: 'done', element: <SuspensePage><SetupStepComplete /></SuspensePage> },
+    ],
+  },
+  {
     path: '/',
     element: (
-      <RequireAuth>
-        <AppLayout />
-      </RequireAuth>
+      <RequireSetup>
+        <RequireAuth>
+          <AppLayout />
+        </RequireAuth>
+      </RequireSetup>
     ),
     children: [
       { index: true, element: <SuspensePage><DashboardPage /></SuspensePage> },
@@ -106,6 +179,7 @@ export const router = createBrowserRouter([
       { path: 'settings', element: <SuspensePage><SettingsPage /></SuspensePage> },
       { path: 'family', element: <SuspensePage><FamilyDashboardPage /></SuspensePage> },
       { path: 'settings/family', element: <SuspensePage><FamilySettingsPage /></SuspensePage> },
+      { path: 'admin', element: <SuspensePage><RequireAdmin><AdminPage /></RequireAdmin></SuspensePage> },
     ],
   },
   {

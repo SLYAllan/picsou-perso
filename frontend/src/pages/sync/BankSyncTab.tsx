@@ -19,6 +19,7 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 import type { Institution } from '@/types/api'
+import { extractErrorMessage } from '@/lib/errors'
 
 type CallbackStatus = 'completing' | 'done' | 'error'
 
@@ -70,9 +71,9 @@ export function BankSyncTab() {
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
-    onError: (err: Error) => {
+    onError: (err: unknown) => {
       setCallbackStatus('error')
-      setCallbackError(err.message)
+      setCallbackError(extractErrorMessage(err))
     },
   })
 
@@ -109,9 +110,8 @@ export function BankSyncTab() {
       setInitiateError(null)
       window.location.href = data.authLink
     },
-    onError: (err: any) => {
-      const detail = err.response?.data?.detail as string | undefined
-      setInitiateError(detail || err.message || t('sync.banks.initiateError'))
+    onError: (err: unknown) => {
+      setInitiateError(extractErrorMessage(err, t('sync.banks.initiateError')))
     },
   })
 

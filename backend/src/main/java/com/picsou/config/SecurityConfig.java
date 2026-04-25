@@ -1,5 +1,6 @@
 package com.picsou.config;
 
+import com.picsou.repository.AppSettingRepository;
 import com.picsou.repository.AppUserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -14,23 +15,23 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.security.config.Customizer;
-import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
-import java.util.Arrays;
 import java.util.List;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
-    @Value("${app.cors.allowed-origins}")
+    @Value("${app.cors.allowed-origins:*}")
     private String allowedOrigins;
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, JwtUtil jwtUtil, AppUserRepository appUserRepository) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http,
+                                           JwtUtil jwtUtil,
+                                           AppUserRepository appUserRepository,
+                                           SetupFilter setupFilter) throws Exception {
         http
             .cors(Customizer.withDefaults())
             .csrf(csrf -> csrf.disable())   // stateless JWT + SameSite cookies cover this
@@ -47,13 +48,22 @@ public class SecurityConfig {
                 )
             )
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/setup/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/refresh").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/activate/*").permitAll()
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
+            // Both custom filters anchor to UsernamePasswordAuthenticationFilter because
+            // Spring Security's FilterOrderRegistration only knows the order of its own
+            // well-known filter classes — passing a custom class as anchor throws
+            // "does not have a registered order". SetupFilter returns 503/410 before
+            // setup is complete; on a fresh install no JWT cookie exists anyway, so
+            // the relative order between the two is a no-op for correctness.
+            .addFilterBefore(setupFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(new JwtAuthenticationFilter(jwtUtil, appUserRepository), UsernamePasswordAuthenticationFilter.class)
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint((req, res, authEx) -> {
@@ -74,27 +84,20 @@ public class SecurityConfig {
     }
 
     @Bean
-    public CorsFilter corsFilter() {
-        CorsFilter filter = new CorsFilter(corsConfigurationSource());
+    public CorsFilter corsFilter(CorsConfigurationSource corsConfigurationSource) {
+        CorsFilter filter = new CorsFilter(corsConfigurationSource);
         filter.setCorsProcessor(new LoggingCorsProcessor());
         return filter;
     }
 
+    /**
+     * Dynamic CORS: reads {@code cors.allowed-origins} from {@code app_setting}
+     * per request, so changes made through the setup wizard's Security step
+     * take effect without a container restart. Falls back to the env var for
+     * fresh installs (and for env-only operators who never run the wizard).
+     */
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
-        List<String> origins = Arrays.stream(allowedOrigins.split(","))
-            .map(String::trim)
-            .filter(s -> !s.isEmpty())
-            .toList();
-        config.setAllowedOriginPatterns(origins);
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Content-Type", "Accept"));
-        config.setAllowCredentials(true);  // required for cookie-based auth
-        config.setMaxAge(3600L);
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/api/**", config);
-        return source;
+    public CorsConfigurationSource corsConfigurationSource(AppSettingRepository settingRepository) {
+        return new DynamicCorsConfigurationSource(settingRepository, allowedOrigins);
     }
 }
