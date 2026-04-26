@@ -2,6 +2,7 @@ package com.picsou.config;
 
 import com.picsou.repository.AppSettingRepository;
 import com.picsou.repository.AppUserRepository;
+import com.picsou.service.PersistentSessionService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,7 +32,9 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http,
                                            JwtUtil jwtUtil,
                                            AppUserRepository appUserRepository,
-                                           SetupFilter setupFilter) throws Exception {
+                                           SetupFilter setupFilter,
+                                           PersistentSessionService persistentSessionService,
+                                           AuthCookieWriter authCookieWriter) throws Exception {
         http
             .cors(Customizer.withDefaults())
             .csrf(csrf -> csrf.disable())   // stateless JWT + SameSite cookies cover this
@@ -57,14 +60,20 @@ public class SecurityConfig {
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
-            // Both custom filters anchor to UsernamePasswordAuthenticationFilter because
+            // All custom filters anchor to UsernamePasswordAuthenticationFilter because
             // Spring Security's FilterOrderRegistration only knows the order of its own
             // well-known filter classes — passing a custom class as anchor throws
             // "does not have a registered order". SetupFilter returns 503/410 before
-            // setup is complete; on a fresh install no JWT cookie exists anyway, so
-            // the relative order between the two is a no-op for correctness.
+            // setup is complete; on a fresh install no JWT cookie exists anyway. The
+            // PersistentTokenAuthFilter must run AFTER JwtAuthenticationFilter so an
+            // active access cookie short-circuits and we don't pay the DB hit per
+            // request — registration order below preserves that ordering.
             .addFilterBefore(setupFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(new JwtAuthenticationFilter(jwtUtil, appUserRepository), UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(
+                new PersistentTokenAuthFilter(persistentSessionService, appUserRepository, jwtUtil, authCookieWriter),
+                UsernamePasswordAuthenticationFilter.class
+            )
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint((req, res, authEx) -> {
                     res.setStatus(401);

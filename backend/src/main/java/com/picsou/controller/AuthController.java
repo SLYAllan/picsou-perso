@@ -1,5 +1,6 @@
 package com.picsou.controller;
 
+import com.picsou.config.AuthCookieWriter;
 import com.picsou.config.JwtUtil;
 import com.picsou.config.RateLimitConfig;
 import com.picsou.dto.ActivationRequest;
@@ -18,7 +19,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -32,20 +32,20 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final Map<String, Bucket> loginBuckets;
-
-    @Value("${app.secure-cookies:true}")
-    private boolean secureCookies;
+    private final AuthCookieWriter cookieWriter;
 
     public AuthController(
         AppUserRepository userRepository,
         PasswordEncoder passwordEncoder,
         JwtUtil jwtUtil,
-        @org.springframework.beans.factory.annotation.Qualifier("loginBuckets") Map<String, Bucket> loginBuckets
+        @org.springframework.beans.factory.annotation.Qualifier("loginBuckets") Map<String, Bucket> loginBuckets,
+        AuthCookieWriter cookieWriter
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.loginBuckets = loginBuckets;
+        this.cookieWriter = cookieWriter;
     }
 
     @PostMapping("/login")
@@ -195,23 +195,15 @@ public class AuthController {
     }
 
     // ─── Cookie helpers ───────────────────────────────────────────────────────
+    // Cookie attributes (HttpOnly/SameSite/Secure) live in AuthCookieWriter so
+    // every emitter (controller, MFA flow, persistent-token filter) stays aligned.
 
     private void setTokenCookies(HttpServletResponse response, String accessToken, String refreshToken) {
-        addCookie(response, "access_token", accessToken, (int) jwtUtil.getAccessExpirySeconds());
-        addCookie(response, "refresh_token", refreshToken, (int) jwtUtil.getRefreshExpirySeconds());
+        cookieWriter.setAccessAndRefresh(response, accessToken, refreshToken);
     }
 
     private void clearTokenCookies(HttpServletResponse response) {
-        addCookie(response, "access_token", "", 0);
-        addCookie(response, "refresh_token", "", 0);
-    }
-
-    private void addCookie(HttpServletResponse response, String name, String value, int maxAge) {
-        String cookieHeader = String.format(
-            "%s=%s; Max-Age=%d; Path=/; HttpOnly; SameSite=Lax%s",
-            name, value, maxAge, secureCookies ? "; Secure" : ""
-        );
-        response.addHeader("Set-Cookie", cookieHeader);
+        cookieWriter.clearAuthCookies(response);
     }
 
     private String extractCookie(HttpServletRequest request, String name) {
