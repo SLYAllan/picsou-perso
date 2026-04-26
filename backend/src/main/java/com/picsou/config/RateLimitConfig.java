@@ -77,6 +77,17 @@ public class RateLimitConfig {
         return new ConcurrentHashMap<>();
     }
 
+    /**
+     * Per-user GDPR data export rate limiter: 5 exports per hour.
+     * Each export streams the user's full graph (accounts, holdings,
+     * transactions, ...) — expensive to build and to ship over the wire,
+     * and a successful re-auth shouldn't unlock unbounded dumps.
+     */
+    @Bean("exportBuckets")
+    public Map<String, Bucket> exportBuckets() {
+        return new ConcurrentHashMap<>();
+    }
+
     public static Bucket createLoginBucket() {
         return Bucket.builder()
             .addLimit(Bandwidth.builder()
@@ -136,6 +147,15 @@ public class RateLimitConfig {
             .addLimit(Bandwidth.builder()
                 .capacity(10)
                 .refillIntervally(10, Duration.ofMinutes(60))
+                .build())
+            .build();
+    }
+
+    public static Bucket createExportBucket() {
+        return Bucket.builder()
+            .addLimit(Bandwidth.builder()
+                .capacity(5)
+                .refillIntervally(5, Duration.ofMinutes(60))
                 .build())
             .build();
     }
