@@ -73,3 +73,5 @@ docs_template*.zip
 .playwright-mcp/
 .superpowers/
 docs/superpowers/
+.mcp.json
+*.plan.md
