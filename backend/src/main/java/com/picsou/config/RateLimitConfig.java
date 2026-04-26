@@ -46,6 +46,37 @@ public class RateLimitConfig {
         return new ConcurrentHashMap<>();
     }
 
+    /**
+     * Per-IP setup wizard rate limiter: 10 mutating requests per minute.
+     * Tight because the endpoints are unauthenticated until setup completes
+     * — without this, a fresh install is exposed to admin-seeding floods
+     * from anyone who can reach port 8080 before the legitimate operator.
+     */
+    @Bean("setupBuckets")
+    public Map<String, Bucket> setupBuckets() {
+        return new ConcurrentHashMap<>();
+    }
+
+    /**
+     * Per-IP MFA verify rate limiter: 5 attempts per 15 minutes.
+     * The 6-digit TOTP space is only 1M; without throttling an attacker with
+     * a stolen mfa_challenge cookie could brute-force in under a minute.
+     */
+    @Bean("mfaVerifyBuckets")
+    public Map<String, Bucket> mfaVerifyBuckets() {
+        return new ConcurrentHashMap<>();
+    }
+
+    /**
+     * Per-IP MFA enrollment rate limiter: 10 requests per hour.
+     * QR generation is CPU-bound (PNG encoding) and enrollment is per-user
+     * one-time — anything beyond a handful per hour from the same IP is abuse.
+     */
+    @Bean("mfaEnrollBuckets")
+    public Map<String, Bucket> mfaEnrollBuckets() {
+        return new ConcurrentHashMap<>();
+    }
+
     public static Bucket createLoginBucket() {
         return Bucket.builder()
             .addLimit(Bandwidth.builder()
@@ -78,6 +109,33 @@ public class RateLimitConfig {
             .addLimit(Bandwidth.builder()
                 .capacity(5)
                 .refillIntervally(5, Duration.ofMinutes(15))
+                .build())
+            .build();
+    }
+
+    public static Bucket createSetupBucket() {
+        return Bucket.builder()
+            .addLimit(Bandwidth.builder()
+                .capacity(10)
+                .refillIntervally(10, Duration.ofMinutes(1))
+                .build())
+            .build();
+    }
+
+    public static Bucket createMfaVerifyBucket() {
+        return Bucket.builder()
+            .addLimit(Bandwidth.builder()
+                .capacity(5)
+                .refillIntervally(5, Duration.ofMinutes(15))
+                .build())
+            .build();
+    }
+
+    public static Bucket createMfaEnrollBucket() {
+        return Bucket.builder()
+            .addLimit(Bandwidth.builder()
+                .capacity(10)
+                .refillIntervally(10, Duration.ofMinutes(60))
                 .build())
             .build();
     }
