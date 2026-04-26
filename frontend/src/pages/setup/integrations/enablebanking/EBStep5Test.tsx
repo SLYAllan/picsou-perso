@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle2, CircleAlert, Loader2, Zap } from 'lucide-react'
+import { CheckCircle2, CircleAlert, Info, Loader2, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EBSubstepShell } from './EBSubstepShell'
 import { useTestEnableBanking } from '@/features/setup/hooks'
@@ -84,15 +84,24 @@ export function EBStep5Test({ onBack }: Props) {
         </div>
 
         {phase === 'idle' && (
-          <div className="flex justify-center">
-            <Button
-              size="lg"
-              onClick={run}
-              className="rounded-full px-8 transition-transform hover:scale-[1.02]"
+          <>
+            <div
+              className="flex items-start gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/5 p-4 text-sm text-amber-900 dark:text-amber-200"
+              role="note"
             >
-              {t('setup.enablebanking.test.run')}
-            </Button>
-          </div>
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+              <p>{t('setup.enablebanking.test.activationNotice')}</p>
+            </div>
+            <div className="flex justify-center">
+              <Button
+                size="lg"
+                onClick={run}
+                className="rounded-full px-8 transition-transform hover:scale-[1.02]"
+              >
+                {t('setup.enablebanking.test.run')}
+              </Button>
+            </div>
+          </>
         )}
 
         {phase === 'running' && (

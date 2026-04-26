@@ -19,10 +19,11 @@ interface Props {
 }
 
 /**
- * Credentials-only. The "redirectUri" portion of the EB config schema is
- * derived automatically in step 4 — we post the full config once at step 4
- * to avoid shipping it twice. Here we just validate the two UUIDs, stash
- * them in the Zustand draft, and advance.
+ * Credentials step (Application ID + Key ID). The redirect URI is shown to
+ * the user in the previous substep so they can register it in their EB
+ * dashboard before generating credentials; we read it back from the draft
+ * (or recompute from window.location as a fallback) and ship the full
+ * config to the backend here.
  */
 export function EBStep2Credentials({ onNext, onBack }: Props) {
   const { t } = useTranslation()
@@ -61,7 +62,7 @@ export function EBStep2Credentials({ onNext, onBack }: Props) {
     }
 
   useEffect(() => {
-    // Pre-populate draft with the autodiscovered redirect URI so step 4
+    // Pre-populate draft with the autodiscovered redirect URI so the prior step
     // can pick it up without re-computing if the user navigated back.
     if (!draft.redirectUri && defaultRedirect) {
       updateEbDraft({ redirectUri: defaultRedirect })
@@ -91,7 +92,7 @@ export function EBStep2Credentials({ onNext, onBack }: Props) {
   })
 
   return (
-    <EBSubstepShell current={2} total={5}>
+    <EBSubstepShell current={3} total={5}>
       <form onSubmit={onSubmit} noValidate className="space-y-6">
         <div className="text-center space-y-2">
           <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">
@@ -138,8 +139,8 @@ export function EBStep2Credentials({ onNext, onBack }: Props) {
           )}
         </div>
 
-        {/* Hidden redirectUri — validated but not user-editable here; step 4
-            shows it clearly and the user can re-confirm there. */}
+        {/* Hidden redirectUri — validated but not user-editable here; the
+            prior substep displays it for the user to register in EB. */}
         <input type="hidden" {...register('redirectUri')} />
 
         {serverError && (

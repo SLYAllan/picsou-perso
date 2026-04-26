@@ -129,6 +129,14 @@ loan amortization, GDPR data export, and dozens of refinements.
 - **Mobile responsiveness** across the whole app for 1.0.0 (`5017206`).
 - **License changed** from MIT to Apache 2.0 + Commons Clause (`e9185c9`,
   `25825e5`).
+- **Enable Banking setup wizard** — redirect URI is now shown before the
+  credentials step so users can whitelist it in their EB dashboard before
+  generating their Application ID / Key ID; test step now warns that EB only
+  activates the application after a real bank account is connected from their
+  dashboard (otherwise the test reports a misleading "invalid key");
+  signup/sign-in link updated to `https://enablebanking.com/sign-in/`.
+- **Trade Republic Add Account** — PIN field is now masked (bullets) like a
+  password input.
 
 ### Fixed
 

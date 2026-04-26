@@ -16,7 +16,7 @@ export function EBStep1Explain({ onNext }: Props) {
   const handleHaveAccount = () => onNext()
 
   const handleCreateAccount = () => {
-    window.open('https://enablebanking.com/sign-up', '_blank', 'noopener,noreferrer')
+    window.open('https://enablebanking.com/sign-in/', '_blank', 'noopener,noreferrer')
     setWaitingOnSignup(true)
   }
 

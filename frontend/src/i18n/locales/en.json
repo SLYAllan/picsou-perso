@@ -725,11 +725,11 @@
         "importError": "Could not read the key. Make sure it's a PKCS#8 .pem file from Enable Banking."
       },
       "redirect": {
-        "title": "Add this redirect URI",
-        "body": "Add this exact URL to your Enable Banking app's \"Allowed redirect URIs\" list.",
+        "title": "Add this redirect URI to Enable Banking",
+        "body": "Open your Enable Banking dashboard, create your application (name it \"Picsou\"), and paste this exact URL into the \"Allowed redirect URIs\" list. Do this before generating your Application ID and Key ID — Enable Banking only accepts the redirect URI you whitelist here.",
         "copy": "Copy URL",
         "copied": "Copied!",
-        "addedCta": "Added — test my setup"
+        "addedCta": "Added — continue"
       },
       "test": {
         "title": "Test your connection",
@@ -739,11 +739,12 @@
         "success": "Enable Banking is ready!",
         "retry": "Retry test",
         "backToPrevious": "Back to previous step",
+        "activationNotice": "Heads up: Enable Banking only activates your application once you've connected at least one real bank account from their dashboard. If you skip that step, this test will report your key as invalid even though it isn't. Open your Enable Banking dashboard, link a bank account on your application, then come back and run the test.",
         "hints": {
-          "invalid_application_id": "The Application ID doesn't match what Enable Banking has on file. Double-check it on step 2.",
-          "invalid_key_id": "The Key ID doesn't match. It's under \"Keys\" in your EB app dashboard.",
-          "public_key_not_uploaded": "Your public key isn't uploaded yet — go back to step 3, upload it, then retry.",
-          "redirect_uri_mismatch": "The redirect URI isn't whitelisted on Enable Banking's side. Re-check step 4.",
+          "invalid_application_id": "The Application ID doesn't match what Enable Banking has on file. Double-check it on the credentials step.",
+          "invalid_key_id": "Enable Banking rejected the JWT. Two common causes: (1) the Application ID or Key ID doesn't match what's in your EB dashboard, or (2) your application isn't activated yet — Enable Banking activates it only after you connect at least one real bank account from their dashboard.",
+          "public_key_not_uploaded": "Your public key isn't uploaded yet — go back to the key-pair step, upload it to your EB application, then retry.",
+          "redirect_uri_mismatch": "The redirect URI isn't whitelisted on Enable Banking's side. Re-check the redirect step.",
           "network": "We couldn't reach Enable Banking. Check your network and try again.",
           "unknown": "Something went wrong. Open the server logs if you need more detail."
         }

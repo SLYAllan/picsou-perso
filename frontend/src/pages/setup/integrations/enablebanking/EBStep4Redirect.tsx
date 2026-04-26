@@ -31,7 +31,7 @@ export function EBStep4Redirect({ onNext, onBack }: Props) {
   }
 
   return (
-    <EBSubstepShell current={4} total={5}>
+    <EBSubstepShell current={2} total={5}>
       <div className="space-y-6">
         <div className="flex justify-center">
           <span className="rounded-xl bg-primary/10 p-3 text-primary">

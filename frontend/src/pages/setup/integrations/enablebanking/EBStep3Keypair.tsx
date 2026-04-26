@@ -113,7 +113,7 @@ export function EBStep3Keypair({ onNext, onBack }: Props) {
   }
 
   return (
-    <EBSubstepShell current={3} total={5}>
+    <EBSubstepShell current={4} total={5}>
       <div className="space-y-6">
         <div className="flex justify-center">
           <span className="rounded-xl bg-primary/10 p-3 text-primary">

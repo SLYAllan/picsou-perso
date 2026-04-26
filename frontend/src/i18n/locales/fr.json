@@ -725,11 +725,11 @@
         "importError": "Impossible de lire la clé. Vérifiez que c'est bien un fichier PKCS#8 (.pem) fourni par Enable Banking."
       },
       "redirect": {
-        "title": "Ajoutez cette redirect URI",
-        "body": "Ajoutez cette URL exacte à la liste \"Allowed redirect URIs\" de votre application Enable Banking.",
+        "title": "Ajoutez cette redirect URI à Enable Banking",
+        "body": "Ouvrez votre tableau de bord Enable Banking, créez votre application (nommez-la \"Picsou\"), et collez exactement cette URL dans la liste \"Allowed redirect URIs\". Faites-le avant de générer votre Application ID et votre Key ID — Enable Banking n'accepte que les redirect URIs whitelistées ici.",
         "copy": "Copier l'URL",
         "copied": "Copié !",
-        "addedCta": "Ajouté — tester ma configuration"
+        "addedCta": "Ajouté — continuer"
       },
       "test": {
         "title": "Testez votre connexion",
@@ -739,11 +739,12 @@
         "success": "Enable Banking est prêt !",
         "retry": "Réessayer",
         "backToPrevious": "Retour à l'étape précédente",
+        "activationNotice": "Important : Enable Banking n'active votre application qu'après que vous ayez connecté au moins un compte bancaire réel depuis leur tableau de bord. Sans cette étape, ce test signalera votre clé comme invalide alors qu'elle est correcte. Ouvrez votre tableau de bord Enable Banking, connectez un compte bancaire à votre application, puis revenez lancer le test.",
         "hints": {
-          "invalid_application_id": "L'Application ID ne correspond pas à ce qu'Enable Banking a en base. Revérifiez à l'étape 2.",
-          "invalid_key_id": "Le Key ID ne correspond pas. Regardez sous \"Keys\" dans votre tableau de bord EB.",
-          "public_key_not_uploaded": "La clé publique n'est pas encore chargée — retournez à l'étape 3, chargez-la, puis réessayez.",
-          "redirect_uri_mismatch": "La redirect URI n'est pas whitelistée côté Enable Banking. Revérifiez l'étape 4.",
+          "invalid_application_id": "L'Application ID ne correspond pas à ce qu'Enable Banking a en base. Revérifiez à l'étape des identifiants.",
+          "invalid_key_id": "Enable Banking a rejeté le JWT. Deux causes fréquentes : (1) l'Application ID ou le Key ID ne correspond pas à ce qu'il y a dans votre tableau de bord EB, ou (2) votre application n'est pas encore activée — Enable Banking ne l'active qu'après que vous ayez connecté au moins un compte bancaire réel depuis leur tableau de bord.",
+          "public_key_not_uploaded": "La clé publique n'est pas encore chargée — retournez à l'étape de la paire de clés, chargez-la sur votre application EB, puis réessayez.",
+          "redirect_uri_mismatch": "La redirect URI n'est pas whitelistée côté Enable Banking. Revérifiez l'étape de la redirect URI.",
           "network": "Impossible de joindre Enable Banking. Vérifiez votre réseau et réessayez.",
           "unknown": "Quelque chose a cassé. Ouvrez les logs serveur pour plus de détails."
         }

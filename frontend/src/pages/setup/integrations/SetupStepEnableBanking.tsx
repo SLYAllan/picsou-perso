@@ -45,9 +45,9 @@ export function SetupStepEnableBanking() {
       </div>
 
       {substep === 1 && <EBStep1Explain onNext={goNext} />}
-      {substep === 2 && <EBStep2Credentials onNext={goNext} onBack={goBack} />}
-      {substep === 3 && <EBStep3Keypair onNext={goNext} onBack={goBack} />}
-      {substep === 4 && <EBStep4Redirect onNext={goNext} onBack={goBack} />}
+      {substep === 2 && <EBStep4Redirect onNext={goNext} onBack={goBack} />}
+      {substep === 3 && <EBStep2Credentials onNext={goNext} onBack={goBack} />}
+      {substep === 4 && <EBStep3Keypair onNext={goNext} onBack={goBack} />}
       {substep === 5 && <EBStep5Test onBack={goBack} />}
     </div>
   )

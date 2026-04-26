@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react'
+import { useContext, useState, useRef } from 'react'
+import { OTPInputContext } from 'input-otp'
 import { useTranslation } from 'react-i18next'
 import {
   Dialog,
@@ -60,6 +61,32 @@ interface AddAccountModalProps {
 }
 
 type WizardStep = 'selector' | 'banks' | 'exchanges' | 'wallets' | 'tr' | 'finary' | 'manual'
+
+/**
+ * Masked variant of InputOTPSlot — replaces the typed character with a bullet
+ * so the slot reads like a password field. We can't edit components/ui/input-otp
+ * (shadcn primitives), so we re-derive slot state from OTPInputContext here.
+ */
+function MaskedOTPSlot({ index }: { index: number }) {
+  const ctx = useContext(OTPInputContext)
+  const slot = ctx?.slots[index]
+  const isActive = slot?.isActive
+  const hasFakeCaret = slot?.hasFakeCaret
+  const hasChar = slot?.char != null && slot.char !== ''
+  return (
+    <div
+      data-active={isActive}
+      className="relative flex size-7 items-center justify-center border-y border-r border-input bg-input/20 text-xs/relaxed transition-all outline-none first:rounded-l-md first:border-l last:rounded-r-md aria-invalid:border-destructive data-[active=true]:z-10 data-[active=true]:border-ring data-[active=true]:ring-2 data-[active=true]:ring-ring/30 dark:bg-input/30"
+    >
+      {hasChar ? '•' : null}
+      {hasFakeCaret && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="h-4 w-px animate-caret-blink bg-foreground duration-1000" />
+        </div>
+      )}
+    </div>
+  )
+}
 
 // ---------------------------------------------------------------------------
 // Source config
@@ -636,7 +663,7 @@ function TradeRepublicWizard({ onDone: _onDone, onBack }: { onDone: () => void; 
               <InputOTP maxLength={4} value={pin} onChange={setPin} autoFocus>
                 <InputOTPGroup>
                   {[0, 1, 2, 3].map((i) => (
-                    <InputOTPSlot key={i} index={i} />
+                    <MaskedOTPSlot key={i} index={i} />
                   ))}
                 </InputOTPGroup>
               </InputOTP>
