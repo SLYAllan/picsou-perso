@@ -4,6 +4,7 @@ import com.picsou.model.AppUser;
 import com.picsou.model.PersistentSession;
 import com.picsou.model.UserRole;
 import com.picsou.repository.AppUserRepository;
+import com.picsou.service.MfaService;
 import com.picsou.service.PersistentSessionService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.Cookie;
@@ -39,6 +40,7 @@ class PersistentTokenAuthFilterTest {
     @Mock AppUserRepository userRepository;
     @Mock JwtUtil jwtUtil;
     @Mock AuthCookieWriter cookieWriter;
+    @Mock MfaService mfaService;
     @Mock FilterChain chain;
 
     PersistentTokenAuthFilter filter;
@@ -48,7 +50,7 @@ class PersistentTokenAuthFilterTest {
 
     @BeforeEach
     void setUp() {
-        filter = new PersistentTokenAuthFilter(persistentSessionService, userRepository, jwtUtil, cookieWriter);
+        filter = new PersistentTokenAuthFilter(persistentSessionService, userRepository, jwtUtil, cookieWriter, mfaService);
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
         user = AppUser.builder().id(7L).username("alice").role(UserRole.MEMBER).activated(true).build();
@@ -108,7 +110,7 @@ class PersistentTokenAuthFilterTest {
 
     @Test
     void clearsCookie_whenUserMissing() throws Exception {
-        String cookie = setupValidCookieFor(7L);
+        setupValidCookieFor(7L, false);
         when(userRepository.findByIdWithMember(7L)).thenReturn(Optional.empty());
 
         filter.doFilter(request, response, chain);
@@ -121,7 +123,7 @@ class PersistentTokenAuthFilterTest {
     @Test
     void clearsCookie_whenUserNotActivated() throws Exception {
         user.setActivated(false);
-        setupValidCookieFor(7L);
+        setupValidCookieFor(7L, false);
         when(userRepository.findByIdWithMember(7L)).thenReturn(Optional.of(user));
 
         filter.doFilter(request, response, chain);
@@ -144,12 +146,13 @@ class PersistentTokenAuthFilterTest {
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
     }
 
-    // ─── happy path ──────────────────────────────────────────────────────
+    // ─── happy paths ─────────────────────────────────────────────────────
 
     @Test
-    void authenticatesAndRotates_onValidCookie() throws Exception {
-        setupValidCookieFor(7L);
+    void authenticatesAndRotates_onValidCookie_whenMfaDisabled() throws Exception {
+        setupValidCookieFor(7L, false);
         when(userRepository.findByIdWithMember(7L)).thenReturn(Optional.of(user));
+        when(mfaService.isEnabled(user)).thenReturn(false);
         when(jwtUtil.generateAccessToken(user)).thenReturn("new-access");
         when(jwtUtil.generateRefreshToken(user)).thenReturn("new-refresh");
 
@@ -164,14 +167,43 @@ class PersistentTokenAuthFilterTest {
         verify(chain).doFilter(request, response);
     }
 
+    @Test
+    void authenticates_whenMfaEnabledAndSessionTrusted() throws Exception {
+        setupValidCookieFor(7L, true);
+        when(userRepository.findByIdWithMember(7L)).thenReturn(Optional.of(user));
+        when(mfaService.isEnabled(user)).thenReturn(true);
+        when(jwtUtil.generateAccessToken(user)).thenReturn("a");
+        when(jwtUtil.generateRefreshToken(user)).thenReturn("r");
+
+        filter.doFilter(request, response, chain);
+
+        verify(cookieWriter).setAccessAndRefresh(response, "a", "r");
+        verify(cookieWriter).setPersistent(eq(response), eq("rotated-cookie-value"), anyLong());
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNotNull();
+    }
+
+    @Test
+    void clearsCookie_whenMfaEnabledButSessionNotTrusted() throws Exception {
+        setupValidCookieFor(7L, false);
+        when(userRepository.findByIdWithMember(7L)).thenReturn(Optional.of(user));
+        when(mfaService.isEnabled(user)).thenReturn(true);
+
+        filter.doFilter(request, response, chain);
+
+        verify(cookieWriter).clearPersistent(response);
+        verify(cookieWriter, never()).setAccessAndRefresh(any(), any(), any());
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        verify(chain).doFilter(request, response);
+    }
+
     // ─── helper ──────────────────────────────────────────────────────────
 
     /**
      * Plumbs a request that carries a "valid" persistent cookie and stubs
      * the session service to return a freshly-rotated session for the given
-     * user id. Returns the raw cookie string for test assertions.
+     * user id with the given trusted-for-2fa flag.
      */
-    private String setupValidCookieFor(long userId) {
+    private void setupValidCookieFor(long userId, boolean trustedFor2fa) {
         String rawCookie = "abc:def";
         request.setCookies(new Cookie(AuthCookieWriter.PERSISTENT_COOKIE, rawCookie));
 
@@ -182,6 +214,7 @@ class PersistentTokenAuthFilterTest {
             .seriesId(UUID.randomUUID())
             .user(sessionUser)
             .tokenHash("h")
+            .trustedFor2fa(trustedFor2fa)
             .createdAt(now.minus(1, ChronoUnit.DAYS))
             .lastUsedAt(now)
             .expiresAt(now.plus(80, ChronoUnit.DAYS))
@@ -191,6 +224,5 @@ class PersistentTokenAuthFilterTest {
             .thenReturn(Optional.of(new PersistentSessionService.ValidationResult(
                 "rotated-cookie-value", session
             )));
-        return rawCookie;
     }
 }

@@ -2,6 +2,7 @@ package com.picsou.config;
 
 import com.picsou.repository.AppSettingRepository;
 import com.picsou.repository.AppUserRepository;
+import com.picsou.service.MfaService;
 import com.picsou.service.PersistentSessionService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -34,7 +35,8 @@ public class SecurityConfig {
                                            AppUserRepository appUserRepository,
                                            SetupFilter setupFilter,
                                            PersistentSessionService persistentSessionService,
-                                           AuthCookieWriter authCookieWriter) throws Exception {
+                                           AuthCookieWriter authCookieWriter,
+                                           MfaService mfaService) throws Exception {
         http
             .cors(Customizer.withDefaults())
             .csrf(csrf -> csrf.disable())   // stateless JWT + SameSite cookies cover this
@@ -55,6 +57,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/refresh").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/mfa/verify").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/activate/*").permitAll()
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
@@ -71,7 +74,7 @@ public class SecurityConfig {
             .addFilterBefore(setupFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(new JwtAuthenticationFilter(jwtUtil, appUserRepository), UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(
-                new PersistentTokenAuthFilter(persistentSessionService, appUserRepository, jwtUtil, authCookieWriter),
+                new PersistentTokenAuthFilter(persistentSessionService, appUserRepository, jwtUtil, authCookieWriter, mfaService),
                 UsernamePasswordAuthenticationFilter.class
             )
             .exceptionHandling(ex -> ex

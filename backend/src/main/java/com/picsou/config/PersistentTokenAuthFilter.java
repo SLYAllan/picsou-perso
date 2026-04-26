@@ -3,6 +3,7 @@ package com.picsou.config;
 import com.picsou.model.AppUser;
 import com.picsou.model.PersistentSession;
 import com.picsou.repository.AppUserRepository;
+import com.picsou.service.MfaService;
 import com.picsou.service.PersistentSessionService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -46,17 +47,20 @@ public class PersistentTokenAuthFilter extends OncePerRequestFilter {
     private final AppUserRepository userRepository;
     private final JwtUtil jwtUtil;
     private final AuthCookieWriter cookieWriter;
+    private final MfaService mfaService;
 
     public PersistentTokenAuthFilter(
         PersistentSessionService persistentSessionService,
         AppUserRepository userRepository,
         JwtUtil jwtUtil,
-        AuthCookieWriter cookieWriter
+        AuthCookieWriter cookieWriter,
+        MfaService mfaService
     ) {
         this.persistentSessionService = persistentSessionService;
         this.userRepository = userRepository;
         this.jwtUtil = jwtUtil;
         this.cookieWriter = cookieWriter;
+        this.mfaService = mfaService;
     }
 
     @Override
@@ -98,6 +102,15 @@ public class PersistentTokenAuthFilter extends OncePerRequestFilter {
         PersistentSession session = validated.get().session();
         AppUser user = userRepository.findByIdWithMember(session.getUser().getId()).orElse(null);
         if (user == null || !user.isActivated()) {
+            cookieWriter.clearPersistent(response);
+            chain.doFilter(request, response);
+            return;
+        }
+
+        // Honour the trusted-device promise: if the user has 2FA enabled but this
+        // session was issued without trust, the cookie alone must not bypass MFA.
+        // Clear it so the browser stops auto-attempting silent re-login.
+        if (mfaService.isEnabled(user) && !session.isTrustedFor2fa()) {
             cookieWriter.clearPersistent(response);
             chain.doFilter(request, response);
             return;

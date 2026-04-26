@@ -137,6 +137,22 @@ public class PersistentSessionService {
         return parseCookie(cookieValue).map(ParsedCookie::seriesId);
     }
 
+    /**
+     * Returns true iff the cookie's series_id belongs to {@code user}, the
+     * session is currently active, and {@code trusted_for_2fa = true}. Does NOT
+     * validate the token hash — call this only AFTER the request has already
+     * been authenticated by other means (typically: the persistent filter set
+     * SecurityContext on this same request, having validated the hash itself).
+     */
+    public boolean isTrustedDeviceFor(AppUser user, String cookieValue) {
+        return parseCookie(cookieValue)
+            .flatMap(p -> repository.findBySeriesId(p.seriesId()))
+            .filter(s -> s.getUser().getId().equals(user.getId()))
+            .filter(PersistentSession::isTrustedFor2fa)
+            .filter(s -> s.isActive(Instant.now(clock)))
+            .isPresent();
+    }
+
     // ── helpers ────────────────────────────────────────────────────────────────
 
     private String generateToken() {
