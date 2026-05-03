@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { createDemoAdapter } from '@/demo'
 import { useAppStore } from '@/stores/app-store'
+import { useAuthStore } from '@/stores/auth-store'
 import { useConnectivityStore } from '@/stores/connectivity-store'
 import { useProfileStore } from '@/stores/profile-store'
 
@@ -105,9 +106,16 @@ api.interceptors.response.use(
         notifyRefreshSubscribers()
         return api(originalRequest!)
       } catch {
-        window.location.href =
-          '/login?redirect=' +
-          encodeURIComponent(window.location.pathname + window.location.search)
+        // Refresh failed: the session is dead. Clear the JS-side auth flag
+        // (sessionStorage) before redirecting, otherwise PublicOnly on /login
+        // sees `isAuthenticated=true` and bounces back to "/", which fires
+        // /family/members → 401 → refresh → 401 → redirect → … infinite loop.
+        useAuthStore.getState().logout()
+        if (window.location.pathname !== '/login') {
+          window.location.href =
+            '/login?redirect=' +
+            encodeURIComponent(window.location.pathname + window.location.search)
+        }
         return Promise.reject(error)
       } finally {
         isRefreshing = false
