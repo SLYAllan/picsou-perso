@@ -5,8 +5,8 @@
 ## Context
 
 Picsou deploys as two Docker images orchestrated by `docker/docker-compose.yml`:
-- **`picsou:latest`** — main app: frontend (Nginx) + backend (Spring Boot), no Python. Published to GHCR as `ghcr.io/zoeille/picsou`.
-- **`docker-tr-auth`** — Trade Republic auth sidecar: headless Chromium + Python/uvicorn. Published to GHCR as `ghcr.io/zoeille/picsou/tr-auth`.
+- **`picsou:latest`** — main app: frontend (Nginx) + backend (Spring Boot), no Python. Published to GHCR as `ghcr.io/zoeille/picsou-finance`.
+- **`docker-tr-auth`** — Trade Republic auth sidecar: headless Chromium + Python/uvicorn. Published to GHCR as `ghcr.io/zoeille/picsou-finance/tr-auth`.
 
 A third container is PostgreSQL 16 (official image, not built).
 
@@ -71,12 +71,12 @@ Both images are published by `.github/workflows/docker.yml` on every push (matri
 
 ```bash
 # Replace 1.0.0 with the desired tag (nightly, branch name, or semver).
-docker pull ghcr.io/zoeille/picsou:1.0.0
-docker pull ghcr.io/zoeille/picsou/tr-auth:1.0.0
+docker pull ghcr.io/zoeille/picsou-finance:1.0.0
+docker pull ghcr.io/zoeille/picsou-finance/tr-auth:1.0.0
 
 # Re-tag to the local names referenced by docker-compose.yml:
-docker tag ghcr.io/zoeille/picsou:1.0.0       picsou:latest
-docker tag ghcr.io/zoeille/picsou/tr-auth:1.0.0 docker-tr-auth:latest
+docker tag ghcr.io/zoeille/picsou-finance:1.0.0       picsou:latest
+docker tag ghcr.io/zoeille/picsou-finance/tr-auth:1.0.0 docker-tr-auth:latest
 ```
 
 Tag scheme:
