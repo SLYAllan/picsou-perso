@@ -83,6 +83,10 @@ Used by:
 - `DashboardService.buildDistribution()` — uses live values from pre-loaded `holdingsByAccount` map for distribution percentages
 - `DashboardService.getDashboard()` — already computed live total/invested inline (pre-dates `liveBalanceEur()`)
 
+### Historical net-worth chart (`HistoryService.buildHistory`)
+
+For each past date, both `total` and `invested` are read from `balance_snapshot` and forward-filled per account from the latest row on or before that date. Loans contribute their negative balance to `total` and zero to `invested`. Today's point is replaced with live values from `liveBalanceEur()` and `calculateInvestedAmount()` so intraday changes are visible immediately. The `invested_amount` column (added in V18, `NOT NULL`) is written by both the daily scheduler and every sync path via `AccountService.upsertSnapshot`.
+
 ### Key files
 
 - `frontend/src/features/accounts/api.ts` — `prices(tickers)` API function
