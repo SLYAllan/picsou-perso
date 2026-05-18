@@ -43,4 +43,8 @@ public interface PriceSnapshotRepository extends JpaRepository<PriceSnapshot, Lo
         WHERE ps.ticker = :ticker AND ps.date = :date
         """)
     void deleteByTickerAndDate(@Param("ticker") String ticker, @Param("date") LocalDate date);
+
+    @Modifying
+    @Query("DELETE FROM PriceSnapshot")
+    int deleteAllSnapshots();
 }

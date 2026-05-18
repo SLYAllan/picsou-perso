@@ -16,11 +16,16 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
  * Fetches stock/ETF prices from Yahoo Finance (unofficial, no API key needed).
  * Used for PEA/Compte-Titres positions with tickers like "IWDA.AS", "MC.PA", etc.
+ *
+ * Prices are converted to EUR using Yahoo's own FX endpoint ({CURRENCY}EUR=X)
+ * when the security is quoted in a non-EUR currency. Rates are cached for 15
+ * minutes to limit API calls. London pence (GBp/GBX) is handled as GBP/100.
  *
  * Note: This is an unofficial API. For production use consider Alpha Vantage or similar.
  */
@@ -29,6 +34,7 @@ public class YahooFinancePriceProvider implements PriceProviderPort {
 
     private static final Logger log = LoggerFactory.getLogger(YahooFinancePriceProvider.class);
     private static final Duration TIMEOUT = Duration.ofSeconds(10);
+    private static final Duration FX_CACHE_TTL = Duration.ofMinutes(15);
 
     // Tickers that are handled by CoinGecko — we skip those
     private static final Set<String> CRYPTO_TICKERS = Set.of(
@@ -36,13 +42,19 @@ public class YahooFinancePriceProvider implements PriceProviderPort {
     );
 
     private final WebClient webClient;
+    private final Map<String, CachedFx> fxCache = new ConcurrentHashMap<>();
 
     public YahooFinancePriceProvider() {
-        this.webClient = WebClient.builder()
+        this(WebClient.builder()
             .baseUrl("https://query1.finance.yahoo.com")
             .defaultHeader("Accept", "application/json")
             .defaultHeader("User-Agent", "Mozilla/5.0")
-            .build();
+            .build());
+    }
+
+    // Package-private constructor for tests — inject a WebClient backed by an ExchangeFunction.
+    YahooFinancePriceProvider(WebClient webClient) {
+        this.webClient = webClient;
     }
 
     @Override
@@ -109,9 +121,78 @@ public class YahooFinancePriceProvider implements PriceProviderPort {
         double price = result.meta().regularMarketPrice();
         if (price <= 0) return null;
 
-        // If ticker already includes EUR currency (e.g. .PA, .AS), price is in EUR
-        // If it's a USD-denominated asset, we'd need FX conversion (simplified: use as-is for now)
-        return BigDecimal.valueOf(price);
+        return applyFx(price, result.meta().currency());
+    }
+
+    /**
+     * Apply FX conversion to a native-currency price. Returns null if the FX
+     * rate cannot be fetched (caller treats that the same way as a missing
+     * price — skip the snapshot rather than store a wrong value).
+     */
+    private BigDecimal applyFx(double rawPrice, String currency) {
+        BigDecimal rate = getFxRateToEur(currency);
+        if (rate == null) {
+            log.warn("Skipping price {} in {}: FX rate unavailable", rawPrice, currency);
+            return null;
+        }
+        return BigDecimal.valueOf(rawPrice).multiply(rate);
+    }
+
+    /**
+     * Resolve the FX rate from `currency` to EUR. Cached for 15 minutes.
+     * Returns BigDecimal.ONE when the price is already in EUR (or currency
+     * is unknown — preserves the pre-fix behavior for cassé payloads).
+     * Returns null when a real fetch fails — caller must handle.
+     */
+    BigDecimal getFxRateToEur(String currency) {
+        if (currency == null || currency.isBlank() || "EUR".equalsIgnoreCase(currency)) {
+            return BigDecimal.ONE;
+        }
+
+        // London pence: 1 GBp = 0.01 GBP. Yahoo returns the exact string "GBp"
+        // (case-sensitive) for LSE-listed stocks like LLOY.L. GBX is the
+        // alternative ISO-4217 code used by some feeds.
+        if ("GBp".equals(currency) || "GBX".equalsIgnoreCase(currency)) {
+            BigDecimal gbpRate = getFxRateToEur("GBP");
+            if (gbpRate == null) return null;
+            return gbpRate.divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP);
+        }
+
+        String upper = currency.toUpperCase();
+        CachedFx cached = fxCache.get(upper);
+        if (cached != null && cached.isFresh()) {
+            return cached.rate();
+        }
+
+        BigDecimal rate = fetchFxRate(upper);
+        if (rate != null) {
+            fxCache.put(upper, new CachedFx(rate, Instant.now()));
+        }
+        return rate;
+    }
+
+    BigDecimal fetchFxRate(String currency) {
+        try {
+            YahooResponse response = webClient.get()
+                .uri("/v8/finance/chart/{pair}?range=1d&interval=1d", currency + "EUR=X")
+                .retrieve()
+                .bodyToMono(YahooResponse.class)
+                .timeout(TIMEOUT)
+                .block();
+
+            if (response == null || response.chart() == null || response.chart().result() == null
+                || response.chart().result().isEmpty()) {
+                return null;
+            }
+            var result = response.chart().result().get(0);
+            if (result.meta() == null) return null;
+            double rate = result.meta().regularMarketPrice();
+            if (rate <= 0) return null;
+            return BigDecimal.valueOf(rate);
+        } catch (Exception ex) {
+            log.debug("FX fetch failed for {}EUR=X: {}", currency, ex.getMessage());
+            return null;
+        }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -131,6 +212,10 @@ public class YahooFinancePriceProvider implements PriceProviderPort {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     record Meta(double regularMarketPrice, String currency) {}
+
+    private record CachedFx(BigDecimal rate, Instant cachedAt) {
+        boolean isFresh() { return Instant.now().isBefore(cachedAt.plus(FX_CACHE_TTL)); }
+    }
 
     /**
      * Fetch hourly prices for a stock/ETF ticker from Yahoo Finance over the last 24H.
@@ -157,6 +242,18 @@ public class YahooFinancePriceProvider implements PriceProviderPort {
                 || result.indicators().quote().isEmpty()
                 || result.indicators().quote().get(0).close() == null) return Map.of();
 
+            // Series use today's FX rate for all historical points; per-day FX
+            // would multiply API calls 250× for marginal accuracy on a personal
+            // finance app.
+            BigDecimal fx = result.meta() != null
+                ? getFxRateToEur(result.meta().currency())
+                : BigDecimal.ONE;
+            if (fx == null) {
+                log.warn("Skipping intraday series for {}: FX rate unavailable for {}",
+                        ticker, result.meta() != null ? result.meta().currency() : "null");
+                return Map.of();
+            }
+
             Map<LocalDateTime, BigDecimal> prices = new LinkedHashMap<>();
             List<Long> timestamps = result.timestamp();
             List<Double> closes = result.indicators().quote().get(0).close();
@@ -167,7 +264,7 @@ public class YahooFinancePriceProvider implements PriceProviderPort {
                 LocalDateTime dt = Instant.ofEpochSecond(timestamps.get(i))
                     .atZone(ZoneId.of("Europe/Paris")).toLocalDateTime();
                 if (!dt.isBefore(from) && !dt.isAfter(to) && close > 0) {
-                    prices.put(dt, BigDecimal.valueOf(close).setScale(8, RoundingMode.HALF_UP));
+                    prices.put(dt, BigDecimal.valueOf(close).multiply(fx).setScale(8, RoundingMode.HALF_UP));
                 }
             }
 
@@ -207,6 +304,18 @@ public class YahooFinancePriceProvider implements PriceProviderPort {
                 || result.indicators().quote().isEmpty()
                 || result.indicators().quote().get(0).close() == null) return Map.of();
 
+            // Series use today's FX rate for all historical points; per-day FX
+            // would multiply API calls 250× for marginal accuracy on a personal
+            // finance app.
+            BigDecimal fx = result.meta() != null
+                ? getFxRateToEur(result.meta().currency())
+                : BigDecimal.ONE;
+            if (fx == null) {
+                log.warn("Skipping historical series for {}: FX rate unavailable for {}",
+                        ticker, result.meta() != null ? result.meta().currency() : "null");
+                return Map.of();
+            }
+
             Map<LocalDate, BigDecimal> prices = new HashMap<>();
             List<Long> timestamps = result.timestamp();
             List<Double> closes = result.indicators().quote().get(0).close();
@@ -217,7 +326,7 @@ public class YahooFinancePriceProvider implements PriceProviderPort {
                 LocalDate date = Instant.ofEpochSecond(timestamps.get(i))
                     .atZone(ZoneOffset.UTC).toLocalDate();
                 if (!date.isBefore(from) && !date.isAfter(to) && close > 0) {
-                    prices.put(date, BigDecimal.valueOf(close).setScale(8, RoundingMode.HALF_UP));
+                    prices.put(date, BigDecimal.valueOf(close).multiply(fx).setScale(8, RoundingMode.HALF_UP));
                 }
             }
 

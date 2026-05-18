@@ -27,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -260,9 +261,7 @@ public class AccountService {
         for (AccountHolding h : holdings) {
             BigDecimal qty = h.getQuantity();
             BigDecimal livePrice = h.getTicker() != null ? priceService.getPriceEur(h.getTicker()) : null;
-            if (livePrice == null) {
-                livePrice = h.getCurrentPrice() != null ? h.getCurrentPrice() : BigDecimal.ZERO;
-            }
+            if (livePrice == null) continue;
             liveValue = liveValue.add(qty.multiply(livePrice));
         }
         return liveValue;
@@ -373,24 +372,28 @@ public class AccountService {
         BigDecimal currentPriceEur = null;
         Instant priceUpdatedAt = null;
 
-        // Fetch current price from price service if ticker exists
+        // Only PriceService (Yahoo/CoinGecko, FX-converted) is trusted as a
+        // source of EUR-denominated prices. holding.currentPrice may have been
+        // stored by a broker adapter (TR/Bourso) in the security's native
+        // currency without conversion — using it as a fallback would silently
+        // produce native-as-EUR values. Better to return null and surface
+        // "price unknown" than to invent a wrong number.
         if (holding.getTicker() != null && !holding.getTicker().isBlank()) {
             currentPriceEur = priceService.getPriceEur(holding.getTicker());
-            // If no price in cache, use the stored price as fallback
-            if (currentPriceEur == null && currentPrice != null) {
-                currentPriceEur = currentPrice;
-            }
             priceUpdatedAt = holding.getLastSyncedAt();
         }
 
-        // Calculate values
         BigDecimal quantity = holding.getQuantity();
         BigDecimal averageBuyIn = holding.getAverageBuyIn();
         BigDecimal costBasis = (averageBuyIn != null ? averageBuyIn : BigDecimal.ZERO).multiply(quantity);
-        BigDecimal currentValueEur = (currentPriceEur != null ? currentPriceEur : BigDecimal.ZERO).multiply(quantity);
-        BigDecimal pnlEur = currentValueEur.subtract(costBasis);
-        BigDecimal pnlPercent = costBasis.compareTo(BigDecimal.ZERO) != 0
-            ? pnlEur.divide(costBasis, 4, BigDecimal.ROUND_HALF_UP).multiply(BigDecimal.valueOf(100))
+        BigDecimal currentValueEur = currentPriceEur != null
+            ? currentPriceEur.multiply(quantity)
+            : null;
+        BigDecimal pnlEur = currentValueEur != null
+            ? currentValueEur.subtract(costBasis)
+            : null;
+        BigDecimal pnlPercent = (pnlEur != null && costBasis.signum() != 0)
+            ? pnlEur.divide(costBasis, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100))
             : null;
 
         return new HoldingResponse(
@@ -399,7 +402,7 @@ public class AccountService {
             quantity,
             averageBuyIn,
             currentPrice,
-            currentPriceEur,
+            currentValueEur,
             costBasis,
             pnlEur,
             pnlPercent,

@@ -193,6 +193,11 @@ public class PriceService {
         }
     }
 
+    /** Drop the in-memory price cache. Used by PriceFxCleanupRunner. */
+    public void clearPriceCache() {
+        priceCache.clear();
+    }
+
     /**
      * Fetch intraday (hourly) prices for a ticker over the given time range.
      * Routes to CoinGecko for crypto, Yahoo Finance for stocks/ETFs.

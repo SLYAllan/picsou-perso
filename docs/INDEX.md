@@ -34,6 +34,7 @@
 | 2026-04-25 | [Admin page reuses SetupService writers behind a role-gated controller](./decisions/2026-04-25-admin-page-reuses-setup-writers.md) | Active |
 | 2026-04-26 | [Compute loan amortization schedules on the fly](./decisions/2026-04-26-loan-amortization-on-the-fly.md) | Active |
 | 2026-04-26 | [TOTP 2FA and persistent (Remember-Me) sessions](./decisions/2026-04-26-totp-2fa-and-persistent-sessions.md) | Active |
+| 2026-05-19 | [FX conversion inside the Yahoo price provider](./decisions/2026-05-19-yahoo-fx-conversion.md) | Active |
 
 ## Feature notes
 
@@ -51,8 +52,8 @@
 | Crypto tracking | 2026-04-08 | [crypto-tracking.md](./features/crypto-tracking.md) |
 | Savings goals | 2026-04-13 | [goals.md](./features/goals.md) |
 | Goals — Grid view (donuts) | 2026-04-08 | [goal-calendar-donut.md](./features/goal-calendar-donut.md) |
-| Price service | 2026-04-04 | [price-service.md](./features/price-service.md) |
-| Live prices (holdings) | 2026-04-13 | [live-prices-holdings.md](./features/live-prices-holdings.md) |
+| Price service | 2026-05-19 | [price-service.md](./features/price-service.md) |
+| Live prices (holdings) | 2026-05-19 | [live-prices-holdings.md](./features/live-prices-holdings.md) |
 | Finary import + auto-sync | 2026-04-21 | [finary-import.md](./features/finary-import.md) |
 | Manual transactions + holdings derivation | 2026-04-21 | [manual-transactions.md](./features/manual-transactions.md) |
 | BoursoBank sync ⏸ disabled in 1.0.0 | 2026-04-26 | [bourso-bank.md](./features/bourso-bank.md) |

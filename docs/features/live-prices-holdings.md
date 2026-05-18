@@ -1,6 +1,6 @@
 # Feature: Live Prices in Holdings
 
-> Last updated: 2026-05-18
+> Last updated: 2026-05-19
 
 ## Context
 
@@ -70,8 +70,8 @@ AccountService.liveBalanceEur(account)
         +-- If no holdings: return stored balance converted to EUR
         |
         +-- If holdings: for each holding:
-        |       +-- priceService.getPriceEur(ticker)  (live cache, 15-min TTL)
-        |       +-- fallback to holding.currentPrice if live price unavailable
+        |       +-- priceService.getPriceEur(ticker)  (live cache, 15-min TTL — EUR-denominated)
+        |       +-- if no live price: skip the holding (no fallback to stored native price)
         |       +-- accumulate qty * livePrice
         |
         v
@@ -109,7 +109,8 @@ For each past date, both `total` and `invested` are read from `balance_snapshot`
 - **Prices are not persisted**: Live prices are only used for display. The DB `current_price` in `account_holding` is not updated — that still happens during sync.
 - **`useAccountHoldings` still exists**: The old hook is kept for the `usePortfolio` hook which fetches holdings for all accounts (portfolio view). Switching it to live prices would trigger many price API calls at once.
 - **No polling**: Prices refresh only on navigation (TanStack Query stale time of 2 min). There is no auto-refresh or polling interval.
-- **Yahoo Finance is unofficial**: See [price-service.md](./price-service.md) gotchas. If Yahoo is down, stock/ETF prices fall back to stale DB values.
+- **Yahoo Finance is unofficial**: See [price-service.md](./price-service.md) gotchas. If Yahoo is down, the live-price API returns no entry for that ticker and the frontend / `liveBalanceEur` show `null` for the affected rows rather than stale DB values — this is intentional after [ADR 2026-05-19](../decisions/2026-05-19-yahoo-fx-conversion.md): the stored `AccountHolding.currentPrice` has no currency tag and cannot be trusted as EUR.
+- **No fallback to stored native price**: `AccountService.toHoldingResponse` returns `currentValueEur = pnlEur = pnlPercent = null` when the live EUR price is missing. The frontend `recomputeWithLivePrice` helper already tolerates `null` live prices.
 - **`AccountService.toResponse()` uses stored balance**: This is intentional — it returns `currentBalanceEur` (stale but fast). Use `liveBalanceEur()` when you need the current portfolio value with PnL.
 - **`liveBalanceEur()` triggers price lookups**: Each call fetches holdings then queries `PriceService` per ticker. Don't call in tight loops. The Dashboard pre-loads holdings into a map to avoid N+1; Goals calls it per-account in the goal's account list (typically small).
 - **`AccountDetailPage.displayBalance` only applies to holding accounts with live data**: If holdings are empty or `liveTotal == 0`, it falls back to `account.currentBalanceEur`. Non-holding accounts always show the stored balance.
