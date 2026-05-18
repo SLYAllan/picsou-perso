@@ -1,6 +1,6 @@
 # Feature: Goals
 
-> Last updated: 2026-04-13
+> Last updated: 2026-05-18
 
 ## Context
 
@@ -20,8 +20,8 @@ A `Goal` has a M:N relationship with `Account` via the `goal_account` join table
 - **percentComplete**: `(currentTotal / targetAmount) * 100`, rounded to 4 decimal places.
 - **monthsLeft**: `ChronoUnit.MONTHS.between(today, deadline)`, minimum 0.
 - **monthlyNeeded**: `(target - currentTotal) / monthsLeft`. If deadline has passed, the entire remaining amount is the monthly need.
-- **avgMonthlyContribution**: Average monthly balance increase over the last 3 months across all linked accounts, computed from `BalanceSnapshot` history. Returns `null` if no snapshot history exists yet.
-- **isOnTrack**: `true` if `avgMonthlyContribution >= monthlyNeeded` or if no history exists yet (benefit of the doubt).
+- **avgMonthlyContribution**: Average monthly balance increase over the last 3 months across all linked accounts, computed from `BalanceSnapshot` history. Returns `null` if no snapshot history exists yet. Displayed in the UI but no longer drives `isOnTrack`.
+- **isOnTrack**: `Σ effective(past months) >= Σ objective(past months)`. `effective` = `manualActual ?? snapshot-delta` (months with neither are skipped). `objective` = `override ?? monthlyNeeded`. "Past" = strictly before the current month (current month is in progress). Returns `true` when the goal has no `createdAt`, no past month, or no past month with data (benefit of the doubt).
 
 ### Monthly tracking
 
@@ -96,6 +96,7 @@ GoalService.setMonthOverride(goalId, yearMonth, amount)
 | Snapshot-based actual calculation | Uses existing BalanceSnapshot data; no need for a separate transaction import | Dedicated savings transaction table |
 | Separate override + manual contribution | Different semantics: override changes the target, manual contribution changes the actual | Single override field (loses information) |
 | 3-month average for `avgMonthlyContribution` | Short enough to reflect recent behavior, long enough to smooth out noise | 6-month or 12-month average (too slow to reflect changes) |
+| `isOnTrack` from cumulative past months | Single source of truth with the `/goals/:id/calendar` view; lets the user influence the badge indirectly via overrides + manual contributions | Snapshot-based 3-month average (decoupled from what the calendar shows; could not be influenced by user adjustments) |
 | `null` for no history | Distinguishes "no data yet" from "zero contribution"; `isOnTrack` treats null as "benefit of the doubt" | Return zero (would mark new goals as "not on track") |
 | `liveBalanceEur()` for currentTotal | Holding accounts show real portfolio value with PnL, not stale sync-time balance | `AccountResponse.currentBalanceEur` (does not reflect live prices) |
 | `<Badge variant="secondary">` for account chips | Uses theme semantic tokens (luma preset); consistent with rest of the UI | Per-account pastel `<span>` with `style={{ background: a.color }}` |
