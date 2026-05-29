@@ -75,7 +75,7 @@ public class AccountController {
         return accountService.getHistory(id, userContext.currentMemberId(), from, to);
     }
 
-    @PostMapping("/{id}/snapshot")
+    @PostMapping("/{id}/history")
     @ResponseStatus(HttpStatus.CREATED)
     public BalanceSnapshot addSnapshot(
         @PathVariable Long id,
