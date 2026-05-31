@@ -8,7 +8,7 @@ import java.util.List;
  * sorted by descending weight. Any breakdown may be empty when the issuer's
  * holdings file does not expose it.
  *
- * @param source the issuer the data came from (e.g. "iShares")
+ * @param source the issuer the data came from (e.g. "Boursorama")
  * @param asOf   the holdings file date when known, else null
  */
 public record EtfComposition(
