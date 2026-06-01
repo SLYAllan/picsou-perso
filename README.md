@@ -18,7 +18,7 @@ Track bank accounts, brokerage, crypto, and net worth — all in one place.
 
 > **Picsou is designed for personal, local use.**
 >
-> It stores sensitive financial data (balances, transactions, bank session tokens). Authentication is single-user with no 2FA or audit logging. It has not undergone a professional security audit.
+> It stores sensitive financial data (balances, transactions, bank session tokens). It supports multi-member families, optional TOTP 2FA, and audit logging of setup/admin actions, but it has **not** undergone a professional security audit.
 >
 > **Do not expose it on the public internet.** Use it on your local machine or home network behind a firewall. If you choose to expose it, you do so at your own risk.
 
@@ -31,6 +31,7 @@ Track bank accounts, brokerage, crypto, and net worth — all in one place.
 - **Brokerage sync** — Trade Republic via WebSocket or CSV import
 - **Crypto** — Binance exchange sync, on-chain BTC/ETH/SOL address tracking
 - **Live prices** — CoinGecko (crypto), Yahoo Finance (stocks/ETFs)
+- **Security insight** — Per-holding asset-type detection and ETF composition (top holdings, country & sector breakdowns) in the holding detail modal
 - **Net worth tracking** — Historical snapshots, stacked area charts, per-account breakdown
 - **Savings goals** — Targets with deadlines, progress tracking across accounts
 - **Multi-member family** — One admin manages multiple profiles (children, spouse). Per-resource sharing (`NONE` / `ALL` / `MANUAL`), optional activation links to upgrade a managed profile to a full login.
@@ -57,7 +58,7 @@ Track bank accounts, brokerage, crypto, and net worth — all in one place.
 - **Ports & Adapters** — `BankConnectorPort`, `PriceProviderPort`, `TradeRepublicPort`, `BoursoPort`, etc. Swap providers without touching business logic.
 - **Two-tier identity** — `AppUser` (auth) → `FamilyMember` (domain). Every entity is scoped by `member_id`; admins can act on behalf of a managed profile via `?memberId=X`.
 - **Flyway** — Versioned database migrations
-- **JWT auth** — HttpOnly cookies, SameSite=Strict, refresh token rotation
+- **JWT auth** — HttpOnly cookies, SameSite=Lax (Safari iOS compatibility), refresh token rotation
 - **2FA (TOTP)** — Opt-in, with hashed recovery codes and trusted-device cookies
 - **AES-256-GCM** — Mandatory encryption for API secrets at rest (Binance, TOTP secrets, bank session tokens)
 - **Rate limiting** — Bucket4j on login, MFA challenge, sync endpoints, and data export
@@ -130,8 +131,8 @@ Upload `enablebanking_public.pem` to your Enable Banking dashboard.
 
 ```bash
 cd backend
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev   # Requires PostgreSQL on :5432
-./mvnw test                                              # Run tests
+mvn spring-boot:run -Dspring-boot.run.profiles=dev   # Requires PostgreSQL on :5432
+mvn test                                              # Run tests
 ```
 
 ### Frontend
@@ -141,7 +142,7 @@ cd frontend
 bun install        # Install dependencies
 bun run dev        # Dev server on :5173 (proxies /api/* → localhost:8080)
 bun run build      # TypeScript check + Vite build
-npx vitest run     # Unit tests
+bunx vitest run    # Unit tests
 ```
 
 ## Contributing
