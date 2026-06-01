@@ -1,6 +1,6 @@
 # Feature: Security Insight (asset type + ETF composition)
 
-> Last updated: 2026-06-01
+> Last updated: 2026-06-02
 
 ## Context
 
@@ -113,6 +113,7 @@ HoldingDetailModal (open)
 | Backend normalises FR labels to keys; frontend translates | Locale-agnostic API; unchanged `WeightedSlice` shape | Translating in the backend; shipping raw French to the client |
 | In-memory cache, 3-day TTL | Composition changes slowly; matches `PriceService` style | Persisting to DB |
 | Frontend adds `Others` remainder | Bars stay honest about coverage (top-10 companies don't sum to 100) | Backend fabricating a 100% total |
+| Block/line view toggle, default **line** | Block (labels inside segments) reads richly on desktop but truncates to nothing for <10px slices on a phone; line (colour bar + legend) stays legible at any width — so line is the mobile-safe default and block is opt-in | Single fixed layout (block alone broke on mobile; line alone dropped the denser desktop view) |
 
 ## Gotchas / Pitfalls
 
@@ -140,6 +141,12 @@ HoldingDetailModal (open)
   breakdown comes back empty (fail-soft, acceptable).
 - **The query is gated on the modal being open** (`enabled`), so it doesn't fire for every
   rendered (but closed) modal.
+- **Both views are the same `PartitionBar` primitive**, differing only in presentation —
+  `BlockView` puts labels *inside* variant-cycled segments; `LineView` makes the bar
+  colour-only and moves labels to a wrapping legend. The shared `CompositionBar` computes
+  `labelOf` + the `Others` remainder once, so the two views can never disagree on the math.
+  The toggle drives all three breakdowns together via one component-local `view` state
+  (resets on modal close — per [ADR 2026-04-05](../decisions/2026-04-05-component-local-state-for-ui-filters.md)).
 - **Demo mode keys on the exact path** (`GET /securities/{ticker}/insight`, query
   stripped); unmatched tickers fall through to `{}`, which the UI treats as "no insight"
   and renders nothing.
@@ -157,8 +164,9 @@ HoldingDetailModal (open)
   the provider, null composition when no provider resolves data, non-ETF skips the
   provider, caching.
 - `HoldingInsightSection.test.tsx` — three bars from a mock ETF composition, the `Others`
-  remainder, country/sector key translation (with verbatim fallback), stock fallback
-  (badge only), unavailable ETF note, empty-response no-render, loading spinner.
+  remainder, country/sector key translation (with verbatim fallback), the **block/line view
+  toggle** (both views render the three bars + labels), stock fallback (badge only),
+  unavailable ETF note, empty-response no-render, loading spinner.
 
 ## Links
 
