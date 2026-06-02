@@ -102,7 +102,6 @@ function squarify(items: DistributionItem[]): Rect[] {
 
 function TooltipAnchor({ rect }: { rect: Rect }) {
   const ref = useRef<HTMLDivElement>(null)
-  const [style, setStyle] = useState<React.CSSProperties>({})
 
   const cx = rect.x + rect.w / 2
   const cy = rect.y + rect.h / 2
@@ -113,14 +112,12 @@ function TooltipAnchor({ rect }: { rect: Rect }) {
   const translateX = cx > 65 ? '-100%' : cx < 35 ? '0' : '-50%'
   const translateY = cy > 75 ? '-100%' : cy < 25 ? '0' : '-50%'
 
-  useMemo(() => {
-    setStyle({
-      left: `${anchorLeft}%`,
-      top: `${anchorTop}%`,
-      transform: `translate(${translateX}, ${translateY})`,
-      whiteSpace: 'nowrap',
-    })
-  }, [anchorLeft, anchorTop, translateX, translateY])
+  const style = useMemo<React.CSSProperties>(() => ({
+    left: `${anchorLeft}%`,
+    top: `${anchorTop}%`,
+    transform: `translate(${translateX}, ${translateY})`,
+    whiteSpace: 'nowrap',
+  }), [anchorLeft, anchorTop, translateX, translateY])
 
   return (
     <div

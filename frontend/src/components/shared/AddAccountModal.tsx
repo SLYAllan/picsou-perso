@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label'
 import { AccountForm } from '@/components/shared/AccountForm'
 import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay'
 import { ACCOUNT_COLORS } from '@/lib/constants'
+import { getErrorStatus, getErrorDetail } from '@/lib/errors'
 import { useCreateAccount, useUpdateDebtMetadata } from '@/features/accounts/hooks'
 import {
   useSearchInstitutions,
@@ -260,7 +261,7 @@ function SuccessState({ message }: { message: string }) {
 // Wizard: Banques
 // ---------------------------------------------------------------------------
 
-function BankWizard({ onDone: _onDone, onBack }: { onDone: () => void; onBack: () => void }) {
+function BankWizard({ onBack }: { onDone: () => void; onBack: () => void }) {
   const { t } = useTranslation()
   const [searchQuery, setSearchQuery] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -278,9 +279,8 @@ function BankWizard({ onDone: _onDone, onBack }: { onDone: () => void; onBack: (
         onSuccess: (data) => {
           window.location.href = data.authLink
         },
-        onError: (err: any) => {
-          const detail = err.response?.data?.detail as string | undefined
-          setError(detail || err.message || t('sync.banks.initiateError'))
+        onError: (err: unknown) => {
+          setError(getErrorDetail(err) || (err as { message?: string })?.message || t('sync.banks.initiateError'))
         },
       },
     )
@@ -347,7 +347,7 @@ function BankWizard({ onDone: _onDone, onBack }: { onDone: () => void; onBack: (
 // Wizard: Exchanges
 // ---------------------------------------------------------------------------
 
-function ExchangeWizard({ onDone: _onDone, onBack }: { onDone: () => void; onBack: () => void }) {
+function ExchangeWizard({ onBack }: { onDone: () => void; onBack: () => void }) {
   const { t } = useTranslation()
   const [exchangeType, setExchangeType] = useState<ExchangeType>('BINANCE')
   const [apiKey, setApiKey] = useState('')
@@ -365,9 +365,8 @@ function ExchangeWizard({ onDone: _onDone, onBack }: { onDone: () => void; onBac
       { type: exchangeType, apiKey, apiSecret },
       {
         onSuccess: () => setDone(true),
-        onError: (err: any) => {
-          const detail = err.response?.data?.detail as string | undefined
-          setError(detail || err.message || t('sync.exchanges.connectError'))
+        onError: (err: unknown) => {
+          setError(getErrorDetail(err) || (err as { message?: string })?.message || t('sync.exchanges.connectError'))
         },
       },
     )
@@ -455,7 +454,7 @@ function ExchangeWizard({ onDone: _onDone, onBack }: { onDone: () => void; onBac
 // Wizard: Wallets
 // ---------------------------------------------------------------------------
 
-function WalletWizard({ onDone: _onDone, onBack }: { onDone: () => void; onBack: () => void }) {
+function WalletWizard({ onBack }: { onDone: () => void; onBack: () => void }) {
   const { t } = useTranslation()
   const [chain, setChain] = useState<ChainType>('ETHEREUM')
   const [address, setAddress] = useState('')
@@ -472,9 +471,8 @@ function WalletWizard({ onDone: _onDone, onBack }: { onDone: () => void; onBack:
       { chain, address, label: label || undefined },
       {
         onSuccess: () => setDone(true),
-        onError: (err: any) => {
-          const detail = err.response?.data?.detail as string | undefined
-          setError(detail || err.message || t('sync.wallets.connectError'))
+        onError: (err: unknown) => {
+          setError(getErrorDetail(err) || (err as { message?: string })?.message || t('sync.wallets.connectError'))
         },
       },
     )
@@ -553,25 +551,28 @@ function WalletWizard({ onDone: _onDone, onBack }: { onDone: () => void; onBack:
 
 type TrState = 'IDLE' | 'AWAITING_TAN' | 'CONNECTED' | 'ERROR'
 
-function formatTrAuthError(error: any, t: (key: string) => string): string {
-  if (error.response?.status === 429) return t('sync.tr.errors.tooManyAttempts')
-  if (error.response?.status === 502) {
-    const detail = error.response?.data?.detail || ''
+function formatTrAuthError(error: unknown, t: (key: string) => string): string {
+  const status = getErrorStatus(error)
+  if (status === 429) return t('sync.tr.errors.tooManyAttempts')
+  if (status === 502) {
+    const detail = getErrorDetail(error) || ''
     if (detail.includes('NUMBER_INVALID')) return t('sync.tr.errors.invalidPhoneNumber')
     if (detail.includes('PIN_INVALID')) return t('sync.tr.errors.invalidPin')
     if (detail.includes('AUTHENTICATION_ERROR')) return t('sync.tr.errors.authenticationFailed')
     return t('sync.tr.errors.serverError')
   }
-  if (error.response?.status === 422) {
-    const errors = error.response?.data?.errors || {}
+  if (status === 422) {
+    const errors =
+      (error as { response?: { data?: { errors?: Record<string, unknown> } } })?.response?.data
+        ?.errors ?? {}
     if (errors.phoneNumber) return t('sync.tr.errors.phoneNumberRequired')
     if (errors.pin) return t('sync.tr.errors.pinRequired')
     return t('sync.tr.errors.validationFailed')
   }
-  return error.message || t('sync.tr.errors.unknownError')
+  return (error as { message?: string })?.message || t('sync.tr.errors.unknownError')
 }
 
-function TradeRepublicWizard({ onDone: _onDone, onBack }: { onDone: () => void; onBack: () => void }) {
+function TradeRepublicWizard({ onBack }: { onDone: () => void; onBack: () => void }) {
   const { t } = useTranslation()
   const [authState, setAuthState] = useState<TrState>('IDLE')
   const [phone, setPhone] = useState('')
@@ -594,7 +595,7 @@ function TradeRepublicWizard({ onDone: _onDone, onBack }: { onDone: () => void; 
           setAuthState('AWAITING_TAN')
           setErrorMsg(null)
         },
-        onError: (err: any) => {
+        onError: (err: unknown) => {
           setErrorMsg(formatTrAuthError(err, t))
           setAuthState('ERROR')
         },
@@ -616,7 +617,7 @@ function TradeRepublicWizard({ onDone: _onDone, onBack }: { onDone: () => void; 
           setProcessId(null)
           setErrorMsg(null)
         },
-        onError: (err: any) => {
+        onError: (err: unknown) => {
           setErrorMsg(formatTrAuthError(err, t))
           setAuthState('ERROR')
         },
@@ -759,9 +760,9 @@ function FinaryWizard({ onDone, onBack }: { onDone: () => void; onBack: () => vo
                 handleApiSyncPreview()
               }
             },
-            onError: (err: any) => {
+            onError: (err: unknown) => {
               setLoading(false)
-              setError(err.response?.data?.detail || t('common.retry'))
+              setError(getErrorDetail(err) || t('common.retry'))
             },
           })
         },
@@ -792,9 +793,9 @@ function FinaryWizard({ onDone, onBack }: { onDone: () => void; onBack: () => vo
           setStep(2)
         }
       },
-      onError: (err: any) => {
+      onError: (err: unknown) => {
         setLoading(false)
-        if (err.response?.status === 403) {
+        if (getErrorStatus(err) === 403) {
           setTotpRequired(true)
         } else {
           setError(err instanceof Error ? err.message : t('common.retry'))
@@ -815,9 +816,9 @@ function FinaryWizard({ onDone, onBack }: { onDone: () => void; onBack: () => vo
         setTotpRequired(false)
         setStep(2)
       },
-      onError: (err: any) => {
+      onError: (err: unknown) => {
         setLoading(false)
-        if (err.response?.status === 403) {
+        if (getErrorStatus(err) === 403) {
           setTotpRequired(true)
         } else {
           setError(err instanceof Error ? err.message : t('common.retry'))
@@ -829,22 +830,21 @@ function FinaryWizard({ onDone, onBack }: { onDone: () => void; onBack: () => vo
   function executeWithMappings(token: string, mappingsToUse: FinaryAccountMapping[]) {
     setLoading(true)
     setError(null)
-    const mutation = isApiSync ? executeApiMutation : importMutation
-    const payload = isApiSync
-      ? { syncToken: token, mappings: mappingsToUse }
-      : { fileToken: token, mappings: mappingsToUse }
+    const onSuccess = (data: FinaryImportResultResponse) => {
+      setLoading(false)
+      setImportResult(data)
+      setStep(3)
+    }
+    const onError = (err: unknown) => {
+      setLoading(false)
+      setError(err instanceof Error ? err.message : t('common.retry'))
+    }
 
-    mutation.mutate(payload as any, {
-      onSuccess: (data) => {
-        setLoading(false)
-        setImportResult(data)
-        setStep(3)
-      },
-      onError: (err: unknown) => {
-        setLoading(false)
-        setError(err instanceof Error ? err.message : t('common.retry'))
-      },
-    })
+    if (isApiSync) {
+      executeApiMutation.mutate({ syncToken: token, mappings: mappingsToUse }, { onSuccess, onError })
+    } else {
+      importMutation.mutate({ fileToken: token, mappings: mappingsToUse }, { onSuccess, onError })
+    }
   }
 
   // --- File upload ---

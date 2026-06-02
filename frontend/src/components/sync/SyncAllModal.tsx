@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
@@ -145,76 +145,81 @@ export function SyncAllModal({ open, onOpenChange }: SyncAllModalProps) {
 
   const isLoading = banksLoading || exchangesLoading || walletsLoading
 
-  // Build unified connections list
-  const connections: SyncConnection[] = []
-  if (banks) {
-    banks
-      .filter(b => b.status !== 'CREATED')
-      .forEach(b => {
-        connections.push({
-          id: `bank-${b.id}`,
-          providerType: 'bank',
-          name: b.institutionName,
-          status: b.status,
-          lastSyncedAt: b.lastSyncedAt,
-          syncId: b.id,
+  // Build unified connections list. Memoized so its identity is stable
+  // across renders — otherwise it would invalidate the useCallback hooks
+  // below (and the compiler's exhaustive-deps check) on every render.
+  const connections = useMemo<SyncConnection[]>(() => {
+    const list: SyncConnection[] = []
+    if (banks) {
+      banks
+        .filter(b => b.status !== 'CREATED')
+        .forEach(b => {
+          list.push({
+            id: `bank-${b.id}`,
+            providerType: 'bank',
+            name: b.institutionName,
+            status: b.status,
+            lastSyncedAt: b.lastSyncedAt,
+            syncId: b.id,
+          })
+        })
+    }
+    if (exchanges) {
+      exchanges.forEach(e => {
+        list.push({
+          id: `exchange-${e.id}`,
+          providerType: 'exchange',
+          name: e.exchangeType,
+          status: e.status,
+          lastSyncedAt: e.lastSyncedAt,
+          syncId: e.id,
         })
       })
-  }
-  if (exchanges) {
-    exchanges.forEach(e => {
-      connections.push({
-        id: `exchange-${e.id}`,
-        providerType: 'exchange',
-        name: e.exchangeType,
-        status: e.status,
-        lastSyncedAt: e.lastSyncedAt,
-        syncId: e.id,
+    }
+    if (wallets) {
+      wallets.forEach(w => {
+        list.push({
+          id: `wallet-${w.id}`,
+          providerType: 'wallet',
+          name: w.label || `${w.chain} - ${w.address.slice(0, 8)}...`,
+          status: 'CONNECTED',
+          lastSyncedAt: w.lastSyncedAt,
+          syncId: w.id,
+        })
       })
-    })
-  }
-  if (wallets) {
-    wallets.forEach(w => {
-      connections.push({
-        id: `wallet-${w.id}`,
-        providerType: 'wallet',
-        name: w.label || `${w.chain} - ${w.address.slice(0, 8)}...`,
-        status: 'CONNECTED',
-        lastSyncedAt: w.lastSyncedAt,
-        syncId: w.id,
+    }
+    // Show TR when user has a TR account, regardless of session status
+    if (hasTrAccount) {
+      const trAccount = accounts?.find(a => a.provider === 'Trade Republic')
+      list.push({
+        id: 'tr',
+        providerType: 'tr',
+        name: 'Trade Republic',
+        status: trStatus?.isActive ? 'active' : 'SESSION_EXPIRED',
+        lastSyncedAt: trAccount?.lastSyncedAt ?? null,
       })
-    })
-  }
-  // Show TR when user has a TR account, regardless of session status
-  if (hasTrAccount) {
-    const trAccount = accounts?.find(a => a.provider === 'Trade Republic')
-    connections.push({
-      id: 'tr',
-      providerType: 'tr',
-      name: 'Trade Republic',
-      status: trStatus?.isActive ? 'active' : 'SESSION_EXPIRED',
-      lastSyncedAt: trAccount?.lastSyncedAt ?? null,
-    })
-  }
-  if (hasBoursoAccount) {
-    const boursoAccount = accounts?.find(a => a.provider === 'BoursoBank')
-    connections.push({
-      id: 'bourso',
-      providerType: 'bourso',
-      name: 'BoursoBank',
-      status: boursoStatus?.isActive ? 'active' : 'SESSION_EXPIRED',
-      lastSyncedAt: boursoAccount?.lastSyncedAt ?? null,
-    })
-  }
-  if (finaryStatus?.connected) {
-    connections.push({
-      id: 'finary',
-      providerType: 'finary',
-      name: 'Finary',
-      status: finaryStatus.status || 'CONNECTED',
-      lastSyncedAt: finaryStatus.lastSyncedAt,
-    })
-  }
+    }
+    if (hasBoursoAccount) {
+      const boursoAccount = accounts?.find(a => a.provider === 'BoursoBank')
+      list.push({
+        id: 'bourso',
+        providerType: 'bourso',
+        name: 'BoursoBank',
+        status: boursoStatus?.isActive ? 'active' : 'SESSION_EXPIRED',
+        lastSyncedAt: boursoAccount?.lastSyncedAt ?? null,
+      })
+    }
+    if (finaryStatus?.connected) {
+      list.push({
+        id: 'finary',
+        providerType: 'finary',
+        name: 'Finary',
+        status: finaryStatus.status || 'CONNECTED',
+        lastSyncedAt: finaryStatus.lastSyncedAt,
+      })
+    }
+    return list
+  }, [banks, exchanges, wallets, hasTrAccount, accounts, trStatus?.isActive, hasBoursoAccount, boursoStatus?.isActive, finaryStatus])
 
   const handleSync = useCallback((connection: SyncConnection) => {
     // TR without active session: open inline auth instead of syncing
@@ -232,7 +237,7 @@ export function SyncAllModal({ open, onOpenChange }: SyncAllModalProps) {
 
     switch (connection.providerType) {
       case 'bank':
-        connection.syncId !== undefined && retryBankMutation.mutate(connection.syncId, {
+        if (connection.syncId !== undefined) retryBankMutation.mutate(connection.syncId, {
           onSettled: () => setSyncingIds(prev => {
             const next = new Set(prev)
             next.delete(connection.id)
@@ -241,7 +246,7 @@ export function SyncAllModal({ open, onOpenChange }: SyncAllModalProps) {
         })
         break
       case 'exchange':
-        connection.syncId !== undefined && syncExchangeMutation.mutate(connection.syncId, {
+        if (connection.syncId !== undefined) syncExchangeMutation.mutate(connection.syncId, {
           onSettled: () => setSyncingIds(prev => {
             const next = new Set(prev)
             next.delete(connection.id)
@@ -250,7 +255,7 @@ export function SyncAllModal({ open, onOpenChange }: SyncAllModalProps) {
         })
         break
       case 'wallet':
-        connection.syncId !== undefined && syncWalletMutation.mutate(connection.syncId, {
+        if (connection.syncId !== undefined) syncWalletMutation.mutate(connection.syncId, {
           onSettled: () => setSyncingIds(prev => {
             const next = new Set(prev)
             next.delete(connection.id)

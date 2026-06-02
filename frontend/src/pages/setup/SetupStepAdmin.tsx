@@ -1,7 +1,7 @@
-import { useMemo } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -50,12 +50,13 @@ export function SetupStepAdmin() {
   const setAdminDisplayName = useSetupFlowStore((s) => s.setAdminDisplayName)
   const submitAdmin = useSubmitAdmin()
 
-  const randomDefault = useMemo(
-    () => AVATAR_SWATCHES[Math.floor(Math.random() * AVATAR_SWATCHES.length)],
-    []
+  // Pick a default swatch once at mount — a lazy useState initializer keeps
+  // the impure Math.random() call out of render.
+  const [randomDefault] = useState(
+    () => AVATAR_SWATCHES[Math.floor(Math.random() * AVATAR_SWATCHES.length)]
   )
 
-  const { register, handleSubmit, watch, setValue, formState } = useForm<SetupAdminFormValues>({
+  const { register, handleSubmit, control, setValue, formState } = useForm<SetupAdminFormValues>({
     resolver: zodResolver(setupAdminSchema),
     defaultValues: {
       username: '',
@@ -66,8 +67,8 @@ export function SetupStepAdmin() {
     mode: 'onBlur',
   })
 
-  const password = watch('password')
-  const avatarColor = watch('avatarColor')
+  const password = useWatch({ control, name: 'password' })
+  const avatarColor = useWatch({ control, name: 'avatarColor' })
   const score = scorePassword(password ?? '')
   const strength = STRENGTH_COPY[score]
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useAppStore } from '@/stores/app-store'
 import { useConnectivityStore } from '@/stores/connectivity-store'
 import { useTranslation } from 'react-i18next'
@@ -12,7 +12,7 @@ export function ConnectionGuard({ children }: { children: ReactNode }) {
   const { setConnected, setChecking } = useConnectivityStore()
   const [status, setStatus] = useState<'checking' | 'connected' | 'failed'>('checking')
 
-  const checkHealth = async () => {
+  const checkHealth = useCallback(async () => {
     setChecking(true)
     try {
       const res = await fetch('/actuator/health', { signal: AbortSignal.timeout(5000) })
@@ -29,15 +29,20 @@ export function ConnectionGuard({ children }: { children: ReactNode }) {
     } finally {
       setChecking(false)
     }
-  }
+  }, [setConnected, setChecking])
 
   useEffect(() => {
-    if (demoMode) {
-      setStatus('connected')
-      return
-    }
+    // In demo mode the render below already short-circuits to children, so
+    // there's no status to set here — just skip the health probe.
+    if (demoMode) return
+    // checkHealth is an async fetch-on-mount: it probes /actuator/health and
+    // synchronizes the result into React + the connectivity store. The lint
+    // rule can't see past the useCallback wrapper to know the setState calls
+    // are gated behind I/O, so it flags the leading setChecking(true). This is
+    // the legitimate "synchronize with an external system on mount" case.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     checkHealth()
-  }, [demoMode])
+  }, [demoMode, checkHealth])
 
   if (demoMode || status === 'connected') {
     return <>{children}</>

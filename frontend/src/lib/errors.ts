@@ -55,6 +55,17 @@ export function extractErrorMessage(err: unknown, fallback = 'Une erreur est sur
   return safeBackendMessage(err) ?? fallback
 }
 
+/** HTTP status of an axios-style error, or `undefined` when not available. */
+export function getErrorStatus(err: unknown): number | undefined {
+  return (err as { response?: { status?: number } })?.response?.status
+}
+
+/** Backend `detail` string of an axios-style error, or `undefined` when absent. */
+export function getErrorDetail(err: unknown): string | undefined {
+  const detail = (err as { response?: { data?: ApiErrorBody } })?.response?.data?.detail
+  return typeof detail === 'string' ? detail : undefined
+}
+
 // formatApiError only ever calls t with a single key argument, so we type it as
 // such. A looser `(key, fallback?: string)` signature would reject the real
 // i18next TFunction, whose second positional arg is an options object / default

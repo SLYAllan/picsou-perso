@@ -19,7 +19,9 @@ function renderModal(onClose = vi.fn()) {
 }
 
 function editFirstMonth(value = '1234') {
-  const input = screen.getAllByRole('spinbutton')[0]
+  // NumericInput renders type="text" inputMode="decimal" (role "textbox"),
+  // not type="number" — so the month fields are textboxes, not spinbuttons.
+  const input = screen.getAllByRole('textbox')[0]
   fireEvent.change(input, { target: { value } })
   return input
 }

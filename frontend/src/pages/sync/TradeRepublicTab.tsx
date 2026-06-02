@@ -17,7 +17,7 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 import type { TrSessionStatus } from '@/types/api'
-import { extractErrorMessage } from '@/lib/errors'
+import { extractErrorMessage, getErrorStatus, getErrorDetail } from '@/lib/errors'
 import { formatDateTime } from '@/lib/utils'
 
 type AuthState = 'IDLE' | 'AWAITING_TAN' | 'CONNECTED' | 'ERROR'
@@ -27,15 +27,17 @@ export function TradeRepublicTab() {
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const formatAuthError = (error: any): string => {
+  const formatAuthError = (error: unknown): string => {
+    const status = getErrorStatus(error)
+
     // Rate limit error
-    if (error.response?.status === 429) {
+    if (status === 429) {
       return t('sync.tr.errors.tooManyAttempts')
     }
 
     // Bad gateway or TR rejection
-    if (error.response?.status === 502) {
-      const detail = error.response?.data?.detail || ''
+    if (status === 502) {
+      const detail = getErrorDetail(error) || ''
 
       // Try to extract specific TR error
       if (detail.includes('NUMBER_INVALID')) {
@@ -52,8 +54,10 @@ export function TradeRepublicTab() {
     }
 
     // Validation errors (422)
-    if (error.response?.status === 422) {
-      const errors = error.response?.data?.errors || {}
+    if (status === 422) {
+      const errors =
+        (error as { response?: { data?: { errors?: Record<string, unknown> } } })?.response
+          ?.data?.errors ?? {}
       if (errors.phoneNumber) {
         return t('sync.tr.errors.phoneNumberRequired')
       }
@@ -90,7 +94,7 @@ export function TradeRepublicTab() {
       setAuthState('AWAITING_TAN')
       setErrorMsg(null)
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       const friendlyMsg = formatAuthError(error)
       setErrorMsg(friendlyMsg)
       setAuthState('ERROR')
@@ -109,7 +113,7 @@ export function TradeRepublicTab() {
       setErrorMsg(null)
       queryClient.invalidateQueries({ queryKey: ['sync', 'tr', 'status'] })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       const friendlyMsg = formatAuthError(error)
       setErrorMsg(friendlyMsg)
       setAuthState('ERROR')

@@ -63,7 +63,7 @@ export function BankSyncTab() {
   const [initiateError, setInitiateError] = useState<string | null>(null)
   const handledCode = useRef<string | null>(null)
 
-  const completeMutation = useMutation({
+  const { mutate: completeSync } = useMutation({
     mutationFn: (code: string) => api.get('/sync/complete', { params: { code } }).then(r => r.data),
     onSuccess: () => {
       setCallbackStatus('done')
@@ -82,9 +82,9 @@ export function BankSyncTab() {
     if (code && code !== handledCode.current) {
       handledCode.current = code
       setCallbackStatus('completing')
-      completeMutation.mutate(code)
+      completeSync(code)
     }
-  }, [searchParams])
+  }, [searchParams, completeSync])
 
   const searchEnabled = searchQuery.trim().length >= 2
 

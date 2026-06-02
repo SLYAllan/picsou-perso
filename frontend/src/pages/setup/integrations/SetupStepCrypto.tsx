@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { Bitcoin, CheckCircle2, CircleAlert, Loader2 } from 'lucide-react'
@@ -20,15 +20,22 @@ export function SetupStepCrypto() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const gen = useGenerateCryptoKey()
+  // Stable mutate fn for the check callback's deps — see the matching note in
+  // SetupStepBoursoBank: depending on `gen.mutate` makes exhaustive-deps ask
+  // for the whole unstable mutation object.
+  const { mutate: generateKey } = gen
   const selected = useSetupFlowStore((s) => s.selectedIntegrations)
   const markDone = useSetupFlowStore((s) => s.markIntegrationDone)
 
-  const [phase, setPhase] = useState<Phase>('idle')
+  // Start in 'running' so the mount probe doesn't need a synchronous
+  // setState in its effect — the loader shows immediately either way.
+  const [phase, setPhase] = useState<Phase>('running')
   const [keyPath, setKeyPath] = useState<string | null>(null)
 
-  const run = () => {
-    setPhase('running')
-    gen.mutate(undefined, {
+  // Fire the idempotent key-generation endpoint. State only changes inside
+  // the async mutation callbacks (allowed in effects).
+  const check = useCallback(() => {
+    generateKey(undefined, {
       onSuccess: (result) => {
         setKeyPath(result.path)
         setPhase(result.existed ? 'existed' : 'created')
@@ -36,6 +43,12 @@ export function SetupStepCrypto() {
       },
       onError: () => setPhase('error'),
     })
+  }, [generateKey, markDone])
+
+  // Retry button: reset the visible state, then re-run.
+  const run = () => {
+    setPhase('running')
+    check()
   }
 
   /**
@@ -45,9 +58,8 @@ export function SetupStepCrypto() {
    * users will still see the regular success state after ~100ms.
    */
   useEffect(() => {
-    run()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    check()
+  }, [check])
 
   const proceed = () => navigate(nextIntegrationRoute('crypto', selected))
   const skip = () => navigate(nextIntegrationRoute('crypto', selected))

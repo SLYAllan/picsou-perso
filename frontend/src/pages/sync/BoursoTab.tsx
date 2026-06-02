@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { RefreshCw, LogOut, User, Lock, ShieldCheck, AlertTriangle } from 'lucide-react'
 import type { BoursoSessionStatus, BoursoAuthInitResponse } from '@/types/api'
-import { extractErrorMessage } from '@/lib/errors'
+import { extractErrorMessage, getErrorStatus, getErrorDetail } from '@/lib/errors'
 import { formatDate } from '@/lib/utils'
 
 type AuthState = 'IDLE' | 'AWAITING_MFA' | 'CONNECTED' | 'ERROR'
@@ -33,15 +33,16 @@ export function BoursoTab() {
 
   const effectiveState: AuthState = sessionStatus?.isActive ? 'CONNECTED' : authState
 
-  function formatError(error: any): string {
-    if (error?.response?.status === 429)  return t('sync.bourso.errors.tooManyAttempts')
-    if (error?.response?.status === 401)  return t('sync.bourso.errors.invalidCredentials')
-    const detail = error?.response?.data?.detail ?? ''
-    if (detail.toLowerCase().includes('expired') || detail.toLowerCase().includes('expiré'))
+  function formatError(error: unknown): string {
+    const status = getErrorStatus(error)
+    if (status === 429)  return t('sync.bourso.errors.tooManyAttempts')
+    if (status === 401)  return t('sync.bourso.errors.invalidCredentials')
+    const detail = (getErrorDetail(error) ?? '').toLowerCase()
+    if (detail.includes('expired') || detail.includes('expiré'))
       return t('sync.bourso.errors.sessionExpired')
-    if (detail.toLowerCase().includes('mfa') || detail.toLowerCase().includes('code'))
+    if (detail.includes('mfa') || detail.includes('code'))
       return t('sync.bourso.errors.invalidMfaCode')
-    if (error?.response?.status >= 500)   return t('sync.bourso.errors.serverError')
+    if (status && status >= 500)   return t('sync.bourso.errors.serverError')
     return extractErrorMessage(error, t('sync.bourso.errors.serverError'))
   }
 
@@ -63,7 +64,7 @@ export function BoursoTab() {
         setAuthState('AWAITING_MFA')
       }
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       setErrorMsg(formatError(error))
       setAuthState('ERROR')
     },
@@ -81,7 +82,7 @@ export function BoursoTab() {
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       setErrorMsg(formatError(error))
       setAuthState('ERROR')
     },

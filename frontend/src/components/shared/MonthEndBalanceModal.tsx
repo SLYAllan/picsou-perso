@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAddSnapshot } from '@/features/accounts/hooks'
 import { extractErrorMessage } from '@/lib/errors'
@@ -46,26 +46,50 @@ interface MonthEndBalanceModalProps {
 
 export function MonthEndBalanceModal({ open, onClose, accountId, history }: MonthEndBalanceModalProps) {
   const { t } = useTranslation()
+
+  return (
+    <Dialog open={open} onOpenChange={o => { if (!o) onClose() }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{t('accounts.monthlyHistory')}</DialogTitle>
+        </DialogHeader>
+        {/* Mount the form only while open so its inputs seed from `history`
+            via lazy initializers — no seed-on-open effect needed. */}
+        {open && (
+          <MonthEndForm
+            key={accountId}
+            accountId={accountId}
+            history={history}
+            onClose={onClose}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+interface MonthEndFormProps {
+  accountId: number
+  history: BalanceSnapshot[] | undefined
+  onClose: () => void
+}
+
+function MonthEndForm({ accountId, history, onClose }: MonthEndFormProps) {
+  const { t } = useTranslation()
   const addSnapshot = useAddSnapshot()
 
   const months = useMemo(() => getLast12Months(), [])
-  const [values, setValues] = useState<Record<string, string>>({})
-  const [modified, setModified] = useState<Set<string>>(new Set())
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  // Seed the inputs from existing snapshots whenever the modal opens.
-  useEffect(() => {
-    if (!open) return
+  const [values, setValues] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {}
     months.forEach(({ key, year, month }) => {
       const snap = snapshotForMonth(history, year, month)
       if (snap) initial[key] = String(snap.balance)
     })
-    setValues(initial)
-    setModified(new Set())
-    setError(null)
-  }, [open, history, months])
+    return initial
+  })
+  const [modified, setModified] = useState<Set<string>>(new Set())
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleChange = (key: string, value: string) => {
     setValues(prev => ({ ...prev, [key]: value }))
@@ -97,60 +121,54 @@ export function MonthEndBalanceModal({ open, onClose, accountId, history }: Mont
   }
 
   return (
-    <Dialog open={open} onOpenChange={o => { if (!o) onClose() }}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>{t('accounts.monthlyHistory')}</DialogTitle>
-        </DialogHeader>
-
-        <div className="flex flex-col gap-0 max-h-[60vh] overflow-y-auto -mx-1 px-1">
-          {months.map(({ key, label }) => {
-            const isModified = modified.has(key)
-            return (
-              <div
-                key={key}
-                className="flex items-center gap-3 py-2 border-b last:border-0"
+    <>
+      <div className="flex flex-col gap-0 max-h-[60vh] overflow-y-auto -mx-1 px-1">
+        {months.map(({ key, label }) => {
+          const isModified = modified.has(key)
+          return (
+            <div
+              key={key}
+              className="flex items-center gap-3 py-2 border-b last:border-0"
+            >
+              <Label
+                htmlFor={`month-${key}`}
+                className={`flex-1 capitalize text-xs ${isModified ? 'text-foreground font-semibold' : 'text-muted-foreground font-medium'}`}
               >
-                <Label
-                  htmlFor={`month-${key}`}
-                  className={`flex-1 capitalize text-xs ${isModified ? 'text-foreground font-semibold' : 'text-muted-foreground font-medium'}`}
-                >
-                  {label}
-                </Label>
-                <NumericInput
-                  id={`month-${key}`}
-                  value={values[key] ?? ''}
-                  onChange={e => handleChange(key, e.target.value)}
-                  placeholder="—"
-                  className="w-28 h-7 text-right text-xs"
-                />
-              </div>
-            )
-          })}
-        </div>
+                {label}
+              </Label>
+              <NumericInput
+                id={`month-${key}`}
+                value={values[key] ?? ''}
+                onChange={e => handleChange(key, e.target.value)}
+                placeholder="—"
+                className="w-28 h-7 text-right text-xs"
+              />
+            </div>
+          )
+        })}
+      </div>
 
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
 
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={onClose} type="button">
-            {t('common.cancel')}
-          </Button>
-          <Button
-            onClick={handleSave}
-            disabled={saving || modified.size === 0}
-          >
-            {saving && (
-              <Loader2 size={12} className="mr-1.5 animate-spin" />
-            )}
-            {t('accounts.addSnapshot')}
-            {modified.size > 0 && ` (${modified.size})`}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <DialogFooter className="gap-2">
+        <Button variant="outline" onClick={onClose} type="button">
+          {t('common.cancel')}
+        </Button>
+        <Button
+          onClick={handleSave}
+          disabled={saving || modified.size === 0}
+        >
+          {saving && (
+            <Loader2 size={12} className="mr-1.5 animate-spin" />
+          )}
+          {t('accounts.addSnapshot')}
+          {modified.size > 0 && ` (${modified.size})`}
+        </Button>
+      </DialogFooter>
+    </>
   )
 }

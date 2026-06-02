@@ -20,4 +20,13 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // shadcn/ui components are vendor-generated (CLI-managed) and intentionally
+    // export a component alongside its `*Variants` cva object. That dual export
+    // trips react-refresh/only-export-components — a known shadcn false positive.
+    // We must not hand-edit these files (a future `shadcn add` would wipe it),
+    // so the rule is scoped off here instead.
+    files: ['src/components/ui/**'],
+    rules: { 'react-refresh/only-export-components': 'off' },
+  },
 ])

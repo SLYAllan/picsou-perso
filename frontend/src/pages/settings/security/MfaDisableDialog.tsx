@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
 import { useMfaDisable } from '@/features/mfa/hooks'
+import { getErrorStatus, getErrorDetail } from '@/lib/errors'
 
 export function MfaDisableDialog({
   open,
@@ -47,10 +48,10 @@ export function MfaDisableDialog({
     try {
       await disable.mutateAsync({ currentPassword, code, isRecoveryCode })
       close()
-    } catch (err: any) {
-      const status = err?.response?.status
-      if (status === 400) setError(err?.response?.data?.detail ?? t('auth.mfaInvalidCode'))
-      else setError(`${status ?? ''} — ${err?.message ?? 'Error'}`)
+    } catch (err: unknown) {
+      const status = getErrorStatus(err)
+      if (status === 400) setError(getErrorDetail(err) ?? t('auth.mfaInvalidCode'))
+      else setError(`${status ?? ''} — ${(err as { message?: string })?.message ?? 'Error'}`)
     }
   }
 

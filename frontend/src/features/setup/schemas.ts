@@ -10,10 +10,10 @@ import { z } from 'zod'
 export const USERNAME_REGEX = /^[a-zA-Z0-9._-]+$/
 export const AVATAR_COLOR_REGEX = /^#[0-9a-fA-F]{6}$/
 export const UUID_SHAPE_REGEX = /^[0-9a-fA-F-]{32,36}$/
-const ORIGIN_REGEX = /^https?:\/\/[A-Za-z0-9.\-]+(:\d{1,5})?$/
+const ORIGIN_REGEX = /^https?:\/\/[A-Za-z0-9.-]+(:\d{1,5})?$/
 // Redirect URIs accept a trailing path so http://host:8080/sync/callback
 // validates, while http://host:8080 alone also passes for the CORS step.
-const REDIRECT_URI_REGEX = /^https?:\/\/[A-Za-z0-9.\-]+(:\d{1,5})?(\/.*)?$/
+const REDIRECT_URI_REGEX = /^https?:\/\/[A-Za-z0-9.-]+(:\d{1,5})?(\/.*)?$/
 
 export const setupAdminSchema = z.object({
   username: z

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { Boxes, CheckCircle2, CircleAlert, Loader2 } from 'lucide-react'
@@ -19,16 +19,20 @@ export function SetupStepBoursoBank() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const health = useBoursoBankHealth()
+  // Pull out the referentially-stable mutate fn so the check callback can
+  // depend on it directly — depending on `health.mutate` makes exhaustive-deps
+  // ask for the whole (unstable) mutation object instead.
+  const { mutate: probeHealth } = health
   const selected = useSetupFlowStore((s) => s.selectedIntegrations)
   const markDone = useSetupFlowStore((s) => s.markIntegrationDone)
 
   const [phase, setPhase] = useState<Phase>('checking')
   const [detail, setDetail] = useState<string | null>(null)
 
-  const run = () => {
-    setPhase('checking')
-    setDetail(null)
-    health.mutate(undefined, {
+  // Fire the health probe. State only changes inside the async mutation
+  // callbacks (allowed in effects) — not synchronously in the effect body.
+  const check = useCallback(() => {
+    probeHealth(undefined, {
       onSuccess: (result) => {
         if (result.ok) {
           setPhase('ok')
@@ -43,12 +47,18 @@ export function SetupStepBoursoBank() {
         setDetail(null)
       },
     })
+  }, [probeHealth, markDone])
+
+  // Retry button: reset the visible state, then re-probe.
+  const run = () => {
+    setPhase('checking')
+    setDetail(null)
+    check()
   }
 
   useEffect(() => {
-    run()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    check()
+  }, [check])
 
   const proceed = () => navigate(nextIntegrationRoute('boursobank', selected))
 

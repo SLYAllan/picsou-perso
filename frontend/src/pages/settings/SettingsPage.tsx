@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { getErrorStatus } from '@/lib/errors'
 import {
   Paintbrush,
   Globe,
@@ -138,8 +139,8 @@ export function SettingsPage() {
       await api.patch('/auth/username', { newUsername: trimmed })
       setUsername(trimmed)
       setEditingUsername(false)
-    } catch (err: any) {
-      setUsernameError(err.response?.status === 409 ? 'Nom d\'utilisateur déjà pris' : 'Erreur, réessayez')
+    } catch (err: unknown) {
+      setUsernameError(getErrorStatus(err) === 409 ? 'Nom d\'utilisateur déjà pris' : 'Erreur, réessayez')
     } finally {
       setUsernameSaving(false)
     }

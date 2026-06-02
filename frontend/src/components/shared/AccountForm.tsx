@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, useWatch, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useTranslation } from 'react-i18next'
@@ -74,13 +74,13 @@ const EMPTY_DEFAULTS: AccountFormData = {
 
 export function AccountForm({ open, onOpenChange, onSubmit, defaultValues, title, loading }: AccountFormProps) {
   const { t } = useTranslation()
-  const { register, handleSubmit, watch, setValue, reset, control } = useForm<AccountFormData>({
+  const { register, handleSubmit, setValue, reset, control } = useForm<AccountFormData>({
     resolver: zodResolver(accountSchema),
     defaultValues: { ...EMPTY_DEFAULTS, ...defaultValues },
   })
 
-  const selectedColor = watch('color')
-  const selectedType = watch('type')
+  const selectedColor = useWatch({ control, name: 'color' })
+  const selectedType = useWatch({ control, name: 'type' })
 
   // The dialog can be opened directly by the parent (open prop flips to true) — Radix's
   // onOpenChange does NOT fire in that case, so a one-shot reset on open inside the handler

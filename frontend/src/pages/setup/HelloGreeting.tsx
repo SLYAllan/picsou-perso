@@ -31,10 +31,11 @@ export function HelloGreeting({
   const { t } = useTranslation()
   const greetings = t('setup.greetings', { returnObjects: true }) as string[]
 
-  const prefersReducedMotion = useRef(
-    typeof window !== 'undefined' &&
+  const [prefersReducedMotion] = useState(
+    () =>
+      typeof window !== 'undefined' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  ).current
+  )
 
   const [index, setIndex] = useState(0)
   const [phase, setPhase] = useState<'in' | 'out'>('in')

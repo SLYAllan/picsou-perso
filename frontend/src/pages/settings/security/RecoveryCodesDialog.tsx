@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
 import { useRegenerateRecoveryCodes } from '@/features/mfa/hooks'
 import { RecoveryCodesView } from './RecoveryCodesView'
-import { formatApiError, safeBackendMessage } from '@/lib/errors'
+import { formatApiError, safeBackendMessage, getErrorStatus } from '@/lib/errors'
 
 export function RecoveryCodesDialog({
   open,
@@ -49,8 +49,8 @@ export function RecoveryCodesDialog({
     try {
       const data = await regenerate.mutateAsync({ currentPassword, code })
       setGenerated(data.recoveryCodes)
-    } catch (err: any) {
-      const status = err?.response?.status
+    } catch (err: unknown) {
+      const status = getErrorStatus(err)
       if (status === 400) setError(safeBackendMessage(err) ?? t('auth.mfaInvalidCode'))
       else setError(formatApiError(err, t))
     }

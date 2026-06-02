@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ACCOUNT_COLORS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
-import { extractErrorMessage } from '@/lib/errors'
+import { extractErrorMessage, getErrorStatus, getErrorDetail } from '@/lib/errors'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -141,9 +141,9 @@ export function FinaryTab() {
           setError(t('sync.finary.notConnected'))
         }
       },
-      onError: (err: any) => {
+      onError: (err: unknown) => {
         setLoading(false)
-        setError(err.response?.data?.detail || t('common.retry'))
+        setError(getErrorDetail(err) || t('common.retry'))
       },
     })
   }
@@ -168,12 +168,12 @@ export function FinaryTab() {
           setStep(2)
         }
       },
-      onError: (err: any) => {
+      onError: (err: unknown) => {
         setLoading(false)
-        if (err.response?.status === 403) {
+        if (getErrorStatus(err) === 403) {
           setTotpRequired(true)
         } else {
-          setError(err.response?.data?.detail || t('common.retry'))
+          setError(getErrorDetail(err) || t('common.retry'))
         }
       },
     })
@@ -191,12 +191,12 @@ export function FinaryTab() {
         setTotpRequired(false)
         setStep(2)
       },
-      onError: (err: any) => {
+      onError: (err: unknown) => {
         setLoading(false)
-        if (err.response?.status === 403) {
+        if (getErrorStatus(err) === 403) {
           setTotpRequired(true)
         } else {
-          setError(err.response?.data?.detail || t('common.retry'))
+          setError(getErrorDetail(err) || t('common.retry'))
         }
       },
     })
@@ -205,24 +205,25 @@ export function FinaryTab() {
   function executeWithMappings(token: string, mappingsToUse: FinaryAccountMapping[]) {
     setLoading(true)
     setError(null)
-    const mutation = isApiSync ? executeApiMutation : importMutation
-    const payload = isApiSync
-      ? { syncToken: token, mappings: mappingsToUse }
-      : { fileToken: token, mappings: mappingsToUse }
+    const onSuccess = (data: FinaryImportResultResponse) => {
+      setLoading(false)
+      setImportResult(data)
+      setStep(3)
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    }
+    const onError = (err: unknown) => {
+      setLoading(false)
+      setError(extractErrorMessage(err, t('common.retry')))
+    }
 
-    mutation.mutate(payload as any, {
-      onSuccess: (data) => {
-        setLoading(false)
-        setImportResult(data)
-        setStep(3)
-        queryClient.invalidateQueries({ queryKey: ['accounts'] })
-        queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      },
-      onError: (err: unknown) => {
-        setLoading(false)
-        setError(extractErrorMessage(err, t('common.retry')))
-      },
-    })
+    // Each mutation takes a distinct payload shape — branch so the call stays
+    // type-safe instead of erasing it with a cast.
+    if (isApiSync) {
+      executeApiMutation.mutate({ syncToken: token, mappings: mappingsToUse }, { onSuccess, onError })
+    } else {
+      importMutation.mutate({ fileToken: token, mappings: mappingsToUse }, { onSuccess, onError })
+    }
   }
 
   // ----- File upload -----

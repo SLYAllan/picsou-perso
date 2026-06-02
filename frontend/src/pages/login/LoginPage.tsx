@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useLoginWithRememberMe } from '@/features/mfa/hooks'
 import { useAppStore } from '@/stores/app-store'
 import { safeRedirect } from '@/lib/utils'
+import { getErrorStatus, getErrorDetail } from '@/lib/errors'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -42,16 +43,17 @@ export function LoginPage() {
         return
       }
       navigate(redirect, { replace: true })
-    } catch (err: any) {
-      const status = err?.response?.status
-      if (!err?.response) {
-        setError(`Impossible de contacter le serveur (${err?.message ?? 'Network Error'})`)
+    } catch (err: unknown) {
+      const status = getErrorStatus(err)
+      const ax = err as { response?: unknown; message?: string }
+      if (!ax.response) {
+        setError(`Impossible de contacter le serveur (${ax.message ?? 'Network Error'})`)
       } else if (status === 429) {
         setError('Trop de tentatives, réessayez dans quelques minutes')
       } else if (status === 401) {
         setError(t('auth.error'))
       } else {
-        setError(`Erreur ${status} — ${err?.response?.data?.detail ?? err?.message}`)
+        setError(`Erreur ${status} — ${getErrorDetail(err) ?? ax.message}`)
       }
     }
   }

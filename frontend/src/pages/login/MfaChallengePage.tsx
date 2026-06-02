@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useVerifyMfa } from '@/features/mfa/hooks'
 import { safeRedirect } from '@/lib/utils'
+import { getErrorStatus, getErrorDetail } from '@/lib/errors'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -37,10 +38,11 @@ export function MfaChallengePage() {
     try {
       await verify.mutateAsync({ code, isRecoveryCode, trustDevice })
       navigate(redirect, { replace: true })
-    } catch (err: any) {
-      const status = err?.response?.status
-      if (!err?.response) {
-        setError(`Network error (${err?.message ?? 'Network Error'})`)
+    } catch (err: unknown) {
+      const status = getErrorStatus(err)
+      const ax = err as { response?: unknown; message?: string }
+      if (!ax.response) {
+        setError(`Network error (${ax.message ?? 'Network Error'})`)
       } else if (status === 401) {
         // Most likely the mfa_challenge cookie expired (default 5 minutes)
         // or the user lingered on this page. Send them back to /login.
@@ -51,7 +53,7 @@ export function MfaChallengePage() {
       } else if (status === 400) {
         setError(t('auth.mfaInvalidCode'))
       } else {
-        setError(`${status} — ${err?.response?.data?.detail ?? err?.message}`)
+        setError(`${status} — ${getErrorDetail(err) ?? ax.message}`)
       }
     }
   }

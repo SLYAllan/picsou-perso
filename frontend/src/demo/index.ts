@@ -11,7 +11,7 @@ function randomDelay(): number {
   return 200 + Math.random() * 400
 }
 
-type MockHandler = (config: InternalAxiosRequestConfig) => any
+type MockHandler = (config: InternalAxiosRequestConfig) => unknown
 
 const handlers = new Map<string, MockHandler>()
 
@@ -114,7 +114,7 @@ for (const ticker of [...demoStockTickers, ...demoCryptoTickers, ...Object.keys(
 }
 
 // Account details: history for multiple accounts (12 months each)
-function generateHistory(startBalances: number[], _currentBalance: number) {
+function generateHistory(startBalances: number[]) {
   const now = new Date()
   const points: { id: number; date: string; balance: number }[] = []
   const months = startBalances.length
@@ -133,31 +133,31 @@ function generateHistory(startBalances: number[], _currentBalance: number) {
 
 // LEP: slow steady growth (savings account)
 handlers.set(key('GET', '/accounts/1/history'), () => generateHistory(
-  [6100, 6250, 6400, 6500, 6650, 6800, 6950, 7100, 7200, 7400, 7600, 7800], 7800))
+  [6100, 6250, 6400, 6500, 6650, 6800, 6950, 7100, 7200, 7400, 7600, 7800]))
 
 // PEA: moderate growth with some dips
 handlers.set(key('GET', '/accounts/2/history'), () => generateHistory(
-  [8200, 8600, 9100, 8800, 9400, 9900, 10200, 10800, 11200, 11600, 12000, 12450.5], 12450.5))
+  [8200, 8600, 9100, 8800, 9400, 9900, 10200, 10800, 11200, 11600, 12000, 12450.5]))
 
 // Compte Titres: more volatile
 handlers.set(key('GET', '/accounts/3/history'), () => generateHistory(
-  [5800, 6200, 6700, 6400, 6900, 7200, 7500, 7100, 7600, 7900, 8100, 8320.75], 8320.75))
+  [5800, 6200, 6700, 6400, 6900, 7200, 7500, 7100, 7600, 7900, 8100, 8320.75]))
 
 // Checking BNP: fluctuates around salary cycle
 handlers.set(key('GET', '/accounts/4/history'), () => generateHistory(
-  [1200, 2800, 1500, 3100, 1800, 2600, 1400, 2900, 1700, 2500, 2100, 2340.2], 2340.2))
+  [1200, 2800, 1500, 3100, 1800, 2600, 1400, 2900, 1700, 2500, 2100, 2340.2]))
 
 // Checking BoursoBank: smaller balance, fluctuates
 handlers.set(key('GET', '/accounts/5/history'), () => generateHistory(
-  [800, 1100, 950, 1300, 1050, 1200, 900, 1350, 1100, 1250, 1400, 1580.9], 1580.9))
+  [800, 1100, 950, 1300, 1050, 1200, 900, 1350, 1100, 1250, 1400, 1580.9]))
 
 // Crypto: volatile, strong upward trend
 handlers.set(key('GET', '/accounts/6/history'), () => generateHistory(
-  [1800, 2100, 2400, 1900, 2600, 2800, 3100, 2700, 3400, 3600, 3900, 4250], 4250))
+  [1800, 2100, 2400, 1900, 2600, 2800, 3100, 2700, 3400, 3600, 3900, 4250]))
 
 // Livret A: slow steady growth
 handlers.set(key('GET', '/accounts/7/history'), () => generateHistory(
-  [4200, 4320, 4440, 4560, 4620, 4740, 4800, 4920, 4980, 5040, 5080, 5120], 5120))
+  [4200, 4320, 4440, 4560, 4620, 4740, 4800, 4920, 4980, 5040, 5080, 5120]))
 
 // Goals
 handlers.set(key('GET', '/goals'), () => mockGoals)

@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
 import { useMfaEnrollInit, useMfaEnrollVerify } from '@/features/mfa/hooks'
 import { RecoveryCodesView } from './RecoveryCodesView'
-import { formatApiError, safeBackendMessage } from '@/lib/errors'
+import { formatApiError, safeBackendMessage, getErrorStatus } from '@/lib/errors'
 
 type Step = 1 | 2 | 3 | 4
 
@@ -64,8 +64,8 @@ export function MfaEnrollDialog({
       setQrUri(data.qrCodeDataUri)
       setSecret(data.secret)
       setStep(2)
-    } catch (err: any) {
-      const status = err?.response?.status
+    } catch (err: unknown) {
+      const status = getErrorStatus(err)
       if (status === 400) setError(safeBackendMessage(err) ?? t('auth.error'))
       else if (status === 429) setError(t('auth.mfaTooManyAttempts'))
       else setError(formatApiError(err, t))
@@ -79,8 +79,8 @@ export function MfaEnrollDialog({
       const data = await enrollVerify.mutateAsync({ code })
       setRecoveryCodes(data.recoveryCodes)
       setStep(4)
-    } catch (err: any) {
-      const status = err?.response?.status
+    } catch (err: unknown) {
+      const status = getErrorStatus(err)
       if (status === 400) setError(t('auth.mfaInvalidCode'))
       else setError(formatApiError(err, t))
     }

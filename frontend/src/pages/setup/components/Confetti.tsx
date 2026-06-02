@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useState } from 'react'
 
 interface ConfettiProps {
   count?: number
@@ -6,13 +6,14 @@ interface ConfettiProps {
 
 /**
  * Pure-CSS confetti burst. We generate a batch of positioned pieces once
- * via `useMemo` so re-renders don't restart the animation. The parent
- * must be `position: relative`; each piece anchors to the parent's top-
- * center and animates outward. The stylesheet honors
- * `prefers-reduced-motion` and hides all pieces in that mode.
+ * via a lazy `useState` initializer so re-renders don't restart the
+ * animation (and so the randomized layout stays out of the render body,
+ * which must be pure). The parent must be `position: relative`; each piece
+ * anchors to the parent's top-center and animates outward. The stylesheet
+ * honors `prefers-reduced-motion` and hides all pieces in that mode.
  */
 export function Confetti({ count = 40 }: ConfettiProps) {
-  const pieces = useMemo(() => {
+  const [pieces] = useState(() => {
     const palette = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#ef4444', '#3b82f6']
     return Array.from({ length: count }, (_, i) => {
       const dx = Math.round((Math.random() - 0.5) * 600)
@@ -22,7 +23,7 @@ export function Confetti({ count = 40 }: ConfettiProps) {
       const color = palette[i % palette.length]
       return { key: i, dx, dy, rot, delay, color }
     })
-  }, [count])
+  })
 
   return (
     <div
