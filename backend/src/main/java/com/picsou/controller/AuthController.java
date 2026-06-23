@@ -49,6 +49,14 @@ public class AuthController {
     private final SetupAuditService auditService;
     private final boolean adminRecoveryEnabled;
 
+    /**
+     * A throwaway hash with the same cost factor as {@link #passwordEncoder}.
+     * When a login request ask an unknown user we still run passwordEncoder.matches
+     * against this hash so the "no such user" path costs the same time as the
+     * "wrong password" path.
+     */
+    private final String dummyPasswordHash;
+
     public AuthController(
         AppUserRepository userRepository,
         PasswordEncoder passwordEncoder,
@@ -71,6 +79,7 @@ public class AuthController {
         this.persistentSessionService = persistentSessionService;
         this.auditService = auditService;
         this.adminRecoveryEnabled = adminRecoveryEnabled;
+        this.dummyPasswordHash = passwordEncoder.encode("login-timing-equalizer");
     }
 
     @PostMapping("/login")
@@ -88,8 +97,16 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(detail);
         }
 
-        AppUser user = userRepository.findByUsernameWithMember(req.username())
-            .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
+        AppUser user = userRepository.findByUsernameWithMember(req.username()).orElse(null);
+        if (user == null) {
+            // Equalize timing with the password-check path below: run a bcrypt comparison
+            // against a dummy hash so a non-existent username can't be distinguished from a
+            // wrong password by response latency. The response is already identical (same
+            // BadCredentialsException -> 401), so this closes the enumeration oracle.
+            // The result is discarded on purpose — we only want the constant-time work.
+            boolean ignored = passwordEncoder.matches(req.password(), dummyPasswordHash);
+            throw new BadCredentialsException("Invalid credentials");
+        }
 
         // Break-glass recovery in progress: the admin has been deactivated and a
         // reset link was printed to the server console. Point the operator there
