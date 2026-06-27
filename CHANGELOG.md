@@ -30,6 +30,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Scoped MCP tools work again — the security context now survives the
+  servlet→tool thread hop.** Spring AI runs `@Tool` methods on a Reactor
+  scheduler thread, but `AccessKeyAuthFilter` authenticates the `psk_` key on the
+  Tomcat servlet thread by setting `SecurityContextHolder` (a `ThreadLocal`). The
+  tool thread therefore saw no `Authentication`, so `ScopeEnforcementAspect`
+  found no scopes and every scoped `tools/call` failed closed with "missing
+  scope" — even for keys that held the scope. A `SecurityContextThreadLocalAccessor`
+  is now registered with the Micrometer `ContextRegistry` and Reactor's automatic
+  context propagation is enabled (`McpSecurityContextPropagationConfig`), so the
+  context is captured at subscription and re-installed around tool execution. The
+  accessor self-clears on every reset/close path, so a pooled scheduler thread
+  never leaks one request's identity into the next. See
+  [docs/lessons/thread-local-context-across-async-hop.md](docs/lessons/thread-local-context-across-async-hop.md).
 - **Finary loan accounts are now imported (issue #11).** Loan/mortgage accounts
   are exposed by Finary through a dedicated `/loans` endpoint, not the portfolio
   `credits`/`credit_accounts` categories that the API sync queried — so they
