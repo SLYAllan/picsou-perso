@@ -453,20 +453,32 @@ public class TradeRepublicAdapter implements TradeRepublicPort {
         }
     }
 
-    private List<String> extractSecAccountNumbers(String sessionToken) {
+    List<String> extractSecAccountNumbers(String sessionToken) {
         try {
             String[] parts = sessionToken.split("\\.");
             if (parts.length < 2) return List.of();
             String payload = new String(java.util.Base64.getUrlDecoder().decode(parts[1]));
             JsonNode root = objectMapper.readTree(payload);
-            JsonNode secAccounts = root.path("act").path("acc").path("owner").path("default").path("sec");
-            if (secAccounts.isArray()) {
-                List<String> result = new ArrayList<>();
-                for (JsonNode acc : secAccounts) {
-                    result.add(acc.asText());
+            JsonNode owner = root.path("act").path("acc").path("owner");
+            // Diagnostic: TR's multi-portfolio feature adds securities accounts
+            // outside owner.default — keep the raw claim visible in the logs.
+            log.info("TR JWT acc claim: {}", root.path("act").path("acc"));
+
+            // Collect sec accounts from ALL owner groups, not just "default":
+            // each TR "portfolio" carries its own securities account number.
+            List<String> result = new ArrayList<>();
+            owner.fieldNames().forEachRemaining(group -> {
+                JsonNode sec = owner.path(group).path("sec");
+                if (sec.isArray()) {
+                    for (JsonNode acc : sec) {
+                        String accNo = acc.asText();
+                        if (!accNo.isBlank() && !result.contains(accNo)) {
+                            result.add(accNo);
+                        }
+                    }
                 }
-                return result;
-            }
+            });
+            return result;
         } catch (Exception ex) {
             log.warn("Failed to extract sec account numbers from JWT: {}", ex.getMessage());
         }
