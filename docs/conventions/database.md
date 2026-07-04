@@ -31,7 +31,7 @@ V{n}__description.sql
 - Double underscore before the description.
 - Description in snake_case.
 
-### Existing migrations (V1-V38)
+### Existing migrations (V1-V39)
 
 | File | Content |
 |------|---------|
@@ -69,6 +69,7 @@ V{n}__description.sql
 | `V36__transaction_security_name.sql` | Security name column on transactions |
 | `V37__access_keys.sql` | Access keys for the embedded MCP server |
 | `V38__scope_and_collectibles.sql` | `scope` (PERSONAL/BUSINESS) on `account`, `COLLECTIBLE` account type, `image_url` on `account_holding` |
+| `V39__budget_and_installments.sql` | `budget_category`, `budget_rule`, `installment_plan` |
 
 Note: V8 and V33-V35 are absent by design (skipped — never rolled into another migration).
 

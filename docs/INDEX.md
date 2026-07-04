@@ -59,6 +59,7 @@
 | Price service | 2026-05-19 | [price-service.md](./features/price-service.md) |
 | Account scope (Personal / Business) | 2026-07-04 | [account-scope.md](./features/account-scope.md) |
 | TCG collectibles tracking | 2026-07-04 | [tcg-collectibles.md](./features/tcg-collectibles.md) |
+| Budget tracking + installment plans (4x) | 2026-07-05 | [budget-and-installments.md](./features/budget-and-installments.md) |
 | Live prices (holdings) | 2026-05-19 | [live-prices-holdings.md](./features/live-prices-holdings.md) |
 | Security Insight (asset type + ETF composition) | 2026-06-02 | [security-insight.md](./features/security-insight.md) |
 | Finary import + auto-sync | 2026-04-21 | [finary-import.md](./features/finary-import.md) |
