@@ -31,7 +31,11 @@
 
 ### AccountType
 
-`LEP` · `PEA` · `COMPTE_TITRES` · `CRYPTO` · `CHECKING` · `SAVINGS` · `OTHER`
+`LEP` · `PEA` · `COMPTE_TITRES` · `CRYPTO` · `CHECKING` · `SAVINGS` · `COLLECTIBLE` · `OTHER`
+
+### AccountScope
+
+`PERSONAL` · `BUSINESS` — personal wealth vs auto-entreprise; used to filter dashboards.
 
 ### Chain
 
@@ -239,6 +243,7 @@ Rotates `access_token`/`refresh_token` (old refresh token is invalidated) whenev
 | `isManual` | `boolean` | | Whether manually managed |
 | `color` | `string` | Hex pattern | Display color, e.g. `"#6366f1"` |
 | `ticker` | `string` | max 20 | Ticker for price lookup (optional) |
+| `scope` | `AccountScope` | | `PERSONAL` (default) or `BUSINESS`; on PUT, omit to keep unchanged |
 
 **Response `201` — `AccountResponse`.**
 
@@ -787,6 +792,87 @@ Rotates `access_token`/`refresh_token` (old refresh token is invalidated) whenev
 ```
 
 Prices are in EUR. Results are cached for 15 minutes.
+
+---
+
+### 9b. Collectibles (TCG) — `/api/collectibles`
+
+TCG cards tracked as investments. Catalog and prices are proxied from
+[tcgcsv.com](https://tcgcsv.com) (TCGplayer data, USD converted to EUR).
+Supported games: Pokémon (3), Pokémon Japan (85), One Piece (68), Riftbound (89).
+Cards live as holdings on a per-member `COLLECTIBLE` account auto-created on first add,
+identified by ticker `TCG:{categoryId}:{groupId}:{productId}:{subTypeCode}`.
+
+#### `GET /api/collectibles/games`
+
+- **Auth:** Required
+
+**Response `200`:** `[{ "categoryId": 89, "name": "Riftbound (League of Legends)" }, ...]`
+
+#### `GET /api/collectibles/games/{categoryId}/groups`
+
+- **Auth:** Required
+
+**Response `200`:** `[{ "groupId": 24344, "name": "Origins", "abbreviation": "OGN", "publishedOn": "..." }, ...]` (24 h cache)
+
+**Errors:** 404 (unsupported game)
+
+#### `GET /api/collectibles/games/{categoryId}/groups/{groupId}/products?q=`
+
+- **Auth:** Required
+- **Query:** `q` — optional name filter (case/diacritic-insensitive contains)
+
+**Response `200`:** `[{ "productId": 693380, "name": "Annie", "imageUrl": "...", "pricesUsd": { "N": 124.42, "F": 250.00 } }, ...]`
+
+`pricesUsd` is keyed by sub-type code (initials of TCGplayer's subTypeName: `N`ormal, `F`oil, `RH` = Reverse Holofoil...).
+
+#### `GET /api/collectibles/cards`
+
+- **Auth:** Required
+
+**Response `200` — `CollectibleCardResponse[]`:** each card position with live EUR valuation
+(`holdingId`, `ticker`, `categoryId`, `gameName`, `name`, `imageUrl`, `quantity`, `averageBuyIn`,
+`currentPriceEur`, `currentValueEur`, `costBasisEur`, `pnlEur`, `pnlPercent`, `createdAt`).
+Valuation fields are `null` when the price is unknown.
+
+#### `POST /api/collectibles/cards`
+
+- **Auth:** Required
+
+**Request body — `CollectibleCardRequest`:**
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| `categoryId` | `number` | @Min(1), supported game | TCGplayer category |
+| `groupId` | `number` | @Min(1) | Set |
+| `productId` | `number` | @Min(1) | Card |
+| `subTypeCode` | `string` | `^[A-Z0-9]{1,5}$` | Finish code (N, F, H, RH...) |
+| `quantity` | `number` | @NotNull @Min(1) | Copies to add |
+| `purchasePriceEur` | `number` | @NotNull @DecimalMin("0") | Price paid per copy (EUR) |
+| `name` | `string` | @NotBlank, max 100 | Card display name |
+| `imageUrl` | `string` | max 300 | Thumbnail (optional) |
+
+Adding an already-owned card merges quantities and recomputes the weighted average buy-in.
+
+**Response `201` — `CollectibleCardResponse`.**
+
+**Errors:** 404 (unsupported game), 422 (validation)
+
+#### `PUT /api/collectibles/cards/{holdingId}`
+
+- **Auth:** Required
+- **Body:** `{ "quantity": number (@NotNull, > 0), "averageBuyIn": number (optional) }`
+
+**Response `200` — `CollectibleCardResponse`.**
+
+**Errors:** 404, 422
+
+#### `DELETE /api/collectibles/cards/{holdingId}`
+
+- **Auth:** Required
+
+**Response `204`.**
+
+**Errors:** 404
 
 ---
 

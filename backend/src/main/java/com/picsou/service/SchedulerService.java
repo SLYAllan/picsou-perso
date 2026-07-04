@@ -5,6 +5,8 @@ import com.picsou.finary.FinaryApiSyncService;
 import com.picsou.model.Account;
 import com.picsou.model.BalanceSnapshot;
 import com.picsou.model.FamilyMember;
+import com.picsou.adapter.TcgCsvPriceProvider;
+import com.picsou.repository.AccountHoldingRepository;
 import com.picsou.repository.AccountRepository;
 import com.picsou.repository.BalanceSnapshotRepository;
 import com.picsou.repository.FamilyMemberRepository;
@@ -27,6 +29,7 @@ public class SchedulerService {
     private static final Logger log = LoggerFactory.getLogger(SchedulerService.class);
 
     private final AccountRepository accountRepository;
+    private final AccountHoldingRepository holdingRepository;
     private final BalanceSnapshotRepository snapshotRepository;
     private final FamilyMemberRepository familyMemberRepository;
     private final AccountService accountService;
@@ -40,6 +43,7 @@ public class SchedulerService {
 
     public SchedulerService(
         AccountRepository accountRepository,
+        AccountHoldingRepository holdingRepository,
         BalanceSnapshotRepository snapshotRepository,
         FamilyMemberRepository familyMemberRepository,
         AccountService accountService,
@@ -52,6 +56,7 @@ public class SchedulerService {
         FinaryApiSyncService finaryApiSyncService
     ) {
         this.accountRepository = accountRepository;
+        this.holdingRepository = holdingRepository;
         this.snapshotRepository = snapshotRepository;
         this.familyMemberRepository = familyMemberRepository;
         this.accountService = accountService;
@@ -167,6 +172,16 @@ public class SchedulerService {
                 log.debug("Refreshing prices for member {} tickers: {}", member.getId(), tickers);
                 priceService.refreshPrices(tickers);
             }
+        }
+
+        // TCG card prices are member-independent — one global refresh persists
+        // their daily price_snapshot history (cards have no backfill source).
+        Set<String> tcgTickers = holdingRepository.findDistinctTickers().stream()
+            .filter(t -> t != null && t.startsWith(TcgCsvPriceProvider.TICKER_PREFIX))
+            .collect(Collectors.toSet());
+        if (!tcgTickers.isEmpty()) {
+            log.debug("Refreshing {} TCG card prices", tcgTickers.size());
+            priceService.refreshPrices(tcgTickers);
         }
     }
 }

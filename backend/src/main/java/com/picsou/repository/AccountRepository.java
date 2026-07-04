@@ -1,6 +1,7 @@
 package com.picsou.repository;
 
 import com.picsou.model.Account;
+import com.picsou.model.AccountType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -20,6 +21,8 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
     List<Account> findByIdInAndMemberId(List<Long> ids, Long memberId);
     Optional<Account> findByExternalAccountIdAndMemberId(String externalAccountId, Long memberId);
     List<Account> findByTickerIsNotNullAndMemberId(Long memberId);
+    Optional<Account> findFirstByMemberIdAndTypeOrderByCreatedAtAsc(Long memberId, AccountType type);
+    List<Account> findAllByMemberIdAndType(Long memberId, AccountType type);
 
     /**
      * Returns true if any soft-deleted account exists with this external id for the member.

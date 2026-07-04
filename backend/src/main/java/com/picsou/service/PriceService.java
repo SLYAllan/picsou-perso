@@ -1,6 +1,7 @@
 package com.picsou.service;
 
 import com.picsou.adapter.CoinGeckoPriceProvider;
+import com.picsou.adapter.TcgCsvPriceProvider;
 import com.picsou.adapter.YahooFinancePriceProvider;
 import com.picsou.model.PriceSnapshot;
 import com.picsou.repository.PriceSnapshotRepository;
@@ -23,15 +24,18 @@ public class PriceService {
 
     private final CoinGeckoPriceProvider coinGecko;
     private final YahooFinancePriceProvider yahoo;
+    private final TcgCsvPriceProvider tcgCsv;
     private final PriceSnapshotRepository priceSnapshotRepository;
 
     // Simple in-memory price cache: ticker → (price, cachedAt)
     private final Map<String, CachedPrice> priceCache = new ConcurrentHashMap<>();
 
     public PriceService(CoinGeckoPriceProvider coinGecko, YahooFinancePriceProvider yahoo,
+                        TcgCsvPriceProvider tcgCsv,
                         PriceSnapshotRepository priceSnapshotRepository) {
         this.coinGecko = coinGecko;
         this.yahoo = yahoo;
+        this.tcgCsv = tcgCsv;
         this.priceSnapshotRepository = priceSnapshotRepository;
     }
 
@@ -57,7 +61,9 @@ public class PriceService {
         Set<String> singleTicker = Set.of(upper);
         Map<String, BigDecimal> prices;
 
-        if (coinGecko.supports(upper)) {
+        if (tcgCsv.supports(upper)) {
+            prices = tcgCsv.getPricesEur(singleTicker);
+        } else if (coinGecko.supports(upper)) {
             prices = coinGecko.getPricesEur(singleTicker);
         } else {
             prices = yahoo.getPricesEur(singleTicker);
@@ -80,16 +86,26 @@ public class PriceService {
 
         Set<String> cryptoTickers = new HashSet<>();
         Set<String> stockTickers = new HashSet<>();
+        Set<String> tcgTickers = new HashSet<>();
 
         for (String ticker : tickers) {
             String upper = ticker.toUpperCase();
             if ("EUR".equals(upper)) {
                 result.put(upper, BigDecimal.ONE);
+            } else if (tcgCsv.supports(upper)) {
+                tcgTickers.add(upper);
             } else if (coinGecko.supports(upper)) {
                 cryptoTickers.add(upper);
             } else {
                 stockTickers.add(upper);
             }
+        }
+
+        if (!tcgTickers.isEmpty()) {
+            tcgCsv.getPricesEur(tcgTickers).forEach((k, v) -> {
+                priceCache.put(k, new CachedPrice(v, Instant.now()));
+                result.put(k, v);
+            });
         }
 
         if (!cryptoTickers.isEmpty()) {
@@ -164,7 +180,9 @@ public class PriceService {
             if ("EUR".equals(upper)) continue;
 
             Map<LocalDate, BigDecimal> prices;
-            if (coinGecko.supports(upper)) {
+            if (tcgCsv.supports(upper)) {
+                prices = tcgCsv.getHistoricalPricesEur(upper, from, to);
+            } else if (coinGecko.supports(upper)) {
                 prices = coinGecko.getHistoricalPricesEur(upper, from, to);
             } else {
                 prices = yahoo.getHistoricalPricesEur(upper, from, to);
@@ -209,7 +227,9 @@ public class PriceService {
 
         String upper = ticker.toUpperCase();
 
-        if (coinGecko.supports(upper)) {
+        if (tcgCsv.supports(upper)) {
+            return tcgCsv.getIntradayPricesEur(upper, from, to);
+        } else if (coinGecko.supports(upper)) {
             return coinGecko.getIntradayPricesEur(upper, from, to);
         } else {
             return yahoo.getIntradayPricesEur(upper, from, to);
