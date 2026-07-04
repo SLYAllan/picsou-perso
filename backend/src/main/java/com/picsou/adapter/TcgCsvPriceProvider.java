@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.picsou.port.PriceProviderPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -60,10 +61,13 @@ public class TcgCsvPriceProvider implements PriceProviderPort {
     private final Map<String, CachedCatalog<TcgGroup>> groupsCache = new ConcurrentHashMap<>();
     private final Map<String, CachedCatalog<TcgProduct>> productsCache = new ConcurrentHashMap<>();
 
+    @Autowired
     public TcgCsvPriceProvider(YahooFinancePriceProvider yahoo) {
         this(WebClient.builder()
             .baseUrl("https://tcgcsv.com")
             .defaultHeader("Accept", "application/json")
+            // tcgcsv rejects the default ReactorNetty user agent with a 401
+            .defaultHeader("User-Agent", "Mozilla/5.0")
             .codecs(c -> c.defaultCodecs().maxInMemorySize(16 * 1024 * 1024))
             .build(), yahoo);
     }
