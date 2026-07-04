@@ -417,6 +417,7 @@ All UIs are mobile-responsive (per repo convention).
 - **PostgreSQL UUID column for `series_id`**: use Hibernate's `@JdbcTypeCode(SqlTypes.UUID)` to avoid varchar fallback.
 - **MFA challenge cookie cleared on `mfaVerifyBuckets` lockout**: critical — otherwise the user is permanently stuck at the MFA screen until 5-min cookie expires anyway, but explicit clearing makes the UX cleaner (returns straight to `/login`).
 - **Demo mode**: enrollment must be rejected with 403 ProblemDetail "MFA is disabled in demo mode" to avoid leaking enrollment state in the shared demo instance.
+- **Known follow-ups, not yet addressed**: (1) multiple tabs restored at once can each present the *same* `persistent_token` to `PersistentTokenAuthFilter`/`validateAndRotate`, which has no grace window for the immediately-previous token value — a genuine race (not just a slow client) can trip theft detection and revoke the whole series, logging the user out everywhere; a short grace window for the previous hash would fix this. (2) the session-probe (`useSessionProbe`) only runs from `RequireAuth` — `PublicOnly` never probes, so opening `/login` directly after a restart shows the form despite a restorable session, and `RequireAdmin` doesn't either; a single probe at app bootstrap shared by all three guards would be more consistent than probing only from `RequireAuth`.
 - **Frontend language**: per project memory, all `docs/` files are English; **UI copy is French** (matching existing pages); both `i18n/fr.json` and `i18n/en.json` must be updated.
 
 ## Tests
