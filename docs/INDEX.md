@@ -57,6 +57,8 @@
 | Savings goals | 2026-06-02 | [goals.md](./features/goals.md) |
 | Goals — Grid view (donuts) | 2026-06-02 | [goal-calendar-donut.md](./features/goal-calendar-donut.md) |
 | Price service | 2026-05-19 | [price-service.md](./features/price-service.md) |
+| Account scope (Personal / Business) | 2026-07-04 | [account-scope.md](./features/account-scope.md) |
+| TCG collectibles tracking | 2026-07-04 | [tcg-collectibles.md](./features/tcg-collectibles.md) |
 | Live prices (holdings) | 2026-05-19 | [live-prices-holdings.md](./features/live-prices-holdings.md) |
 | Security Insight (asset type + ETF composition) | 2026-06-02 | [security-insight.md](./features/security-insight.md) |
 | Finary import + auto-sync | 2026-04-21 | [finary-import.md](./features/finary-import.md) |

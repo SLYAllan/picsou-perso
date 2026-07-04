@@ -31,7 +31,7 @@ V{n}__description.sql
 - Double underscore before the description.
 - Description in snake_case.
 
-### Existing migrations (V1-V32)
+### Existing migrations (V1-V38)
 
 | File | Content |
 |------|---------|
@@ -66,8 +66,11 @@ V{n}__description.sql
 | `V30__account_soft_delete.sql` | Soft-delete (`deleted_at`) on `account` |
 | `V31__price_cleanup_gate.sql` | Gate column controlling price-snapshot cleanup |
 | `V32__goal_history_start.sql` | `history_start` column anchoring goal trajectory charts |
+| `V36__transaction_security_name.sql` | Security name column on transactions |
+| `V37__access_keys.sql` | Access keys for the embedded MCP server |
+| `V38__scope_and_collectibles.sql` | `scope` (PERSONAL/BUSINESS) on `account`, `COLLECTIBLE` account type, `image_url` on `account_holding` |
 
-Note: V8 is absent by design (skipped — never rolled into another migration).
+Note: V8 and V33-V35 are absent by design (skipped — never rolled into another migration).
 
 ### Writing a new migration
 
