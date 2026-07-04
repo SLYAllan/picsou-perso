@@ -14,10 +14,12 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-picsou}?sslmode=prefer
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-picsou}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-picsou}
+      # :? makes the deploy fail loudly if a secret is missing in the Coolify UI —
+      # no silent fallback to a default credential.
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in Coolify (openssl rand -base64 32)}
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
-      JWT_SECRET: ${JWT_SECRET}
-      CRYPTO_ENCRYPTION_KEY: ${CRYPTO_ENCRYPTION_KEY}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in Coolify (openssl rand -base64 48)}
+      CRYPTO_ENCRYPTION_KEY: ${CRYPTO_ENCRYPTION_KEY:?set CRYPTO_ENCRYPTION_KEY in Coolify (openssl rand -base64 32)}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
       SECURE_COOKIES: ${SECURE_COOKIES:-true}
       TR_AUTH_URL: http://tr-auth:8001
@@ -35,9 +37,10 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
+      # DB name/user are not secrets — defaults are fine. The password is.
       POSTGRES_DB: ${POSTGRES_DB:-picsou}
       POSTGRES_USER: ${POSTGRES_USER:-picsou}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-picsou}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in Coolify (openssl rand -base64 32)}
     volumes:
       - pgdata:/var/lib/postgresql/data
 
