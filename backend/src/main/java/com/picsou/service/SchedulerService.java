@@ -40,6 +40,7 @@ public class SchedulerService {
     private final CryptoExchangeSyncService cryptoExchangeSyncService;
     private final WalletSyncService walletSyncService;
     private final FinaryApiSyncService finaryApiSyncService;
+    private final InstallmentService installmentService;
 
     public SchedulerService(
         AccountRepository accountRepository,
@@ -53,7 +54,8 @@ public class SchedulerService {
         PriceService priceService,
         CryptoExchangeSyncService cryptoExchangeSyncService,
         WalletSyncService walletSyncService,
-        FinaryApiSyncService finaryApiSyncService
+        FinaryApiSyncService finaryApiSyncService,
+        InstallmentService installmentService
     ) {
         this.accountRepository = accountRepository;
         this.holdingRepository = holdingRepository;
@@ -67,6 +69,20 @@ public class SchedulerService {
         this.cryptoExchangeSyncService = cryptoExchangeSyncService;
         this.walletSyncService = walletSyncService;
         this.finaryApiSyncService = finaryApiSyncService;
+        this.installmentService = installmentService;
+    }
+
+    /**
+     * Daily at 07:55 (before the 08:05 snapshots): refresh the auto-maintained
+     * "Paiements 4x" debt accounts — an installment whose date passed overnight
+     * reduces the remaining due without user action.
+     */
+    @Scheduled(cron = "0 55 7 * * *")
+    public void refreshInstallmentDebts() {
+        for (FamilyMember member : familyMemberRepository.findAllByOrderByCreatedAtAsc()) {
+            installmentService.refreshDebtAccounts(member);
+        }
+        log.debug("Installment debt accounts refreshed");
     }
 
     /**

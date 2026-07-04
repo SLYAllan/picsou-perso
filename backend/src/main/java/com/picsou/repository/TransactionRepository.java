@@ -31,4 +31,12 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     /** Earliest transaction date across all accounts */
     @Query("SELECT MIN(t.date) FROM Transaction t")
     LocalDate findEarliestDate();
+
+    /** Budget view: one month of transactions across a set of (member-scoped) accounts. */
+    List<Transaction> findByAccountIdInAndDateBetweenOrderByDateDesc(
+        List<Long> accountIds, LocalDate from, LocalDate to);
+
+    /** Member-scoped single transaction lookup (via account ownership). */
+    @Query("SELECT t FROM Transaction t WHERE t.id = :id AND t.account.member.id = :memberId")
+    Optional<Transaction> findByIdAndMemberId(@Param("id") Long id, @Param("memberId") Long memberId);
 }
