@@ -165,6 +165,7 @@ public class DashboardService {
                 balanceEur,
                 Math.round(percentage * 100.0) / 100.0,
                 account.getType().name(),
+                account.getScope().name(),
                 !holdings.isEmpty()
             ));
         }

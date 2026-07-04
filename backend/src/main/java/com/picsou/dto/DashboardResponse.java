@@ -35,6 +35,7 @@ public record DashboardResponse(
         BigDecimal balanceEur,
         double percentage,
         String accountType,
+        String scope,
         boolean hasHoldings
     ) {}
 

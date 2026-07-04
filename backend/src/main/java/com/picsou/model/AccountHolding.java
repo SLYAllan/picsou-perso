@@ -40,4 +40,8 @@ public class AccountHolding extends AuditableEntity {
 
     @Column(name = "last_synced_at")
     private Instant lastSyncedAt;
+
+    /** Card thumbnail for collectible holdings; null for regular holdings. */
+    @Column(name = "image_url", length = 300)
+    private String imageUrl;
 }

@@ -6,6 +6,7 @@ import com.picsou.dto.HoldingResponse;
 import com.picsou.dto.SnapshotRequest;
 import com.picsou.mcp.RequiresScope;
 import com.picsou.mcp.Scopes;
+import com.picsou.model.AccountScope;
 import com.picsou.model.AccountType;
 import com.picsou.model.BalanceSnapshot;
 import com.picsou.service.AccountService;
@@ -78,8 +79,9 @@ public class AccountTools {
         @ToolParam(description = "ISO currency code, e.g. EUR, USD") String currency,
         @ToolParam(description = "Opening balance; defaults to 0 when omitted", required = false) BigDecimal currentBalance,
         @ToolParam(description = "Optional hex colour like #1a2b3c", required = false) String color,
-        @ToolParam(description = "Optional ticker for single-asset accounts", required = false) String ticker) {
-        AccountRequest req = new AccountRequest(name, type, null, currency, currentBalance, true, color, ticker);
+        @ToolParam(description = "Optional ticker for single-asset accounts", required = false) String ticker,
+        @ToolParam(description = "Account scope: PERSONAL (default) or BUSINESS (auto-entreprise)", required = false) AccountScope scope) {
+        AccountRequest req = new AccountRequest(name, type, null, currency, currentBalance, true, color, ticker, scope);
         return accountService.create(req, userContext.currentMember());
     }
 
@@ -93,8 +95,9 @@ public class AccountTools {
         @ToolParam(description = "ISO currency code, e.g. EUR, USD") String currency,
         @ToolParam(description = "Balance; omit to leave the service default", required = false) BigDecimal currentBalance,
         @ToolParam(description = "Optional hex colour like #1a2b3c", required = false) String color,
-        @ToolParam(description = "Optional ticker for single-asset accounts", required = false) String ticker) {
-        AccountRequest req = new AccountRequest(name, type, null, currency, currentBalance, true, color, ticker);
+        @ToolParam(description = "Optional ticker for single-asset accounts", required = false) String ticker,
+        @ToolParam(description = "Account scope: PERSONAL or BUSINESS; omit to keep unchanged", required = false) AccountScope scope) {
+        AccountRequest req = new AccountRequest(name, type, null, currency, currentBalance, true, color, ticker, scope);
         return accountService.update(accountId, req, userContext.currentMemberId());
     }
 

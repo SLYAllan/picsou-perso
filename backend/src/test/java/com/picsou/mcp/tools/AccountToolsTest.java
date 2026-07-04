@@ -86,7 +86,7 @@ class AccountToolsTest {
             .thenReturn(created);
 
         AccountResponse out = tools.createManualAccount(
-            "Livret", AccountType.SAVINGS, "EUR", new BigDecimal("100.00"), "#abcdef", null);
+            "Livret", AccountType.SAVINGS, "EUR", new BigDecimal("100.00"), "#abcdef", null, null);
 
         assertThat(out).isSameAs(created);
         ArgumentCaptor<AccountRequest> captor = ArgumentCaptor.forClass(AccountRequest.class);
@@ -107,7 +107,7 @@ class AccountToolsTest {
             org.mockito.ArgumentMatchers.eq(MID))).thenReturn(updated);
 
         AccountResponse out = tools.updateAccount(
-            5L, "Renamed", AccountType.CHECKING, "EUR", null, null, null);
+            5L, "Renamed", AccountType.CHECKING, "EUR", null, null, null, null);
 
         assertThat(out).isSameAs(updated);
         verify(accountService).update(org.mockito.ArgumentMatchers.eq(5L),

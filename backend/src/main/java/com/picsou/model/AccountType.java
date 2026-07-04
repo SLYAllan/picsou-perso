@@ -9,5 +9,6 @@ public enum AccountType {
     SAVINGS,
     REAL_ESTATE,
     LOAN,
+    COLLECTIBLE,
     OTHER
 }

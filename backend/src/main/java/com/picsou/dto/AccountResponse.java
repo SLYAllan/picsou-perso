@@ -1,6 +1,7 @@
 package com.picsou.dto;
 
 import com.picsou.model.Account;
+import com.picsou.model.AccountScope;
 import com.picsou.model.AccountType;
 
 import java.math.BigDecimal;
@@ -10,6 +11,7 @@ public record AccountResponse(
     Long id,
     String name,
     AccountType type,
+    AccountScope scope,
     String provider,
     String currency,
     BigDecimal currentBalance,
@@ -27,6 +29,7 @@ public record AccountResponse(
             a.getId(),
             a.getName(),
             a.getType(),
+            a.getScope(),
             a.getProvider(),
             a.getCurrency(),
             a.getCurrentBalance(),
@@ -42,12 +45,12 @@ public record AccountResponse(
     }
 
     public AccountResponse withRealEstate(RealEstateMetadataResponse realEstate) {
-        return new AccountResponse(id, name, type, provider, currency, currentBalance,
+        return new AccountResponse(id, name, type, scope, provider, currency, currentBalance,
             currentBalanceEur, lastSyncedAt, isManual, color, ticker, createdAt, realEstate, debt);
     }
 
     public AccountResponse withDebt(DebtResponse debt) {
-        return new AccountResponse(id, name, type, provider, currency, currentBalance,
+        return new AccountResponse(id, name, type, scope, provider, currency, currentBalance,
             currentBalanceEur, lastSyncedAt, isManual, color, ticker, createdAt, realEstate, debt);
     }
 }

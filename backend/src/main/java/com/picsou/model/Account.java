@@ -34,6 +34,11 @@ public class Account extends AuditableEntity {
     @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.NAMED_ENUM)
     private AccountType type;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    @Builder.Default
+    private AccountScope scope = AccountScope.PERSONAL;
+
     @Column(length = 100)
     private String provider;
 

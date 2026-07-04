@@ -12,6 +12,7 @@ import com.picsou.dto.TransactionResponse;
 import com.picsou.exception.ResourceNotFoundException;
 import com.picsou.model.Account;
 import com.picsou.model.AccountHolding;
+import com.picsou.model.AccountScope;
 import com.picsou.model.AccountType;
 import com.picsou.model.BalanceSnapshot;
 import com.picsou.model.Debt;
@@ -82,6 +83,7 @@ public class AccountService {
             .member(member)
             .name(req.name())
             .type(req.type())
+            .scope(req.scope() != null ? req.scope() : AccountScope.PERSONAL)
             .provider(req.provider())
             .currency(req.currency())
             .currentBalance(req.currentBalance() != null ? req.currentBalance() : BigDecimal.ZERO)
@@ -107,6 +109,9 @@ public class AccountService {
 
         account.setName(req.name());
         account.setType(req.type());
+        if (req.scope() != null) {
+            account.setScope(req.scope());
+        }
         account.setProvider(req.provider());
         account.setCurrency(req.currency());
         account.setColor(req.color() != null ? req.color() : account.getColor());

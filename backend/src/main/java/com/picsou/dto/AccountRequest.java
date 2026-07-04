@@ -1,5 +1,6 @@
 package com.picsou.dto;
 
+import com.picsou.model.AccountScope;
 import com.picsou.model.AccountType;
 import com.picsou.validation.ValidCurrency;
 import jakarta.validation.constraints.*;
@@ -14,5 +15,6 @@ public record AccountRequest(
     @DecimalMin("0") BigDecimal currentBalance,
     boolean isManual,
     @Pattern(regexp = "^#[0-9A-Fa-f]{6}$", message = "Color must be a valid hex color") String color,
-    @Size(max = 20) String ticker
+    @Size(max = 20) String ticker,
+    AccountScope scope
 ) {}
