@@ -34,6 +34,7 @@ export const mockDashboard: DashboardData = {
     balanceEur: a.currentBalanceEur,
     percentage: Math.round((a.currentBalanceEur / 41862.35) * 1000) / 10,
     accountType: a.type,
+    scope: a.scope,
     hasHoldings: ['PEA', 'COMPTE_TITRES', 'CRYPTO'].includes(a.type),
   })),
   liabilities: [],

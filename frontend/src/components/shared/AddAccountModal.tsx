@@ -136,7 +136,8 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
 
   async function handleManualSubmit(data: {
     name: string
-    type: 'LEP' | 'PEA' | 'COMPTE_TITRES' | 'CRYPTO' | 'CHECKING' | 'SAVINGS' | 'REAL_ESTATE' | 'LOAN' | 'OTHER'
+    type: 'LEP' | 'PEA' | 'COMPTE_TITRES' | 'CRYPTO' | 'CHECKING' | 'SAVINGS' | 'REAL_ESTATE' | 'LOAN' | 'COLLECTIBLE' | 'OTHER'
+    scope: 'PERSONAL' | 'BUSINESS'
     provider?: string
     currency: string
     currentBalance?: number
@@ -154,6 +155,7 @@ export function AddAccountModal({ open, onOpenChange }: AddAccountModalProps) {
     const request: AccountRequest = {
       name: data.name,
       type: data.type,
+      scope: data.scope,
       provider: data.provider || undefined,
       currency: data.currency,
       currentBalance: data.currentBalance,

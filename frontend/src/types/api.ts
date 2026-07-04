@@ -1,6 +1,8 @@
 export type AccountType =
   | 'LEP' | 'PEA' | 'COMPTE_TITRES' | 'CRYPTO' | 'CHECKING' | 'SAVINGS'
-  | 'REAL_ESTATE' | 'LOAN' | 'OTHER'
+  | 'REAL_ESTATE' | 'LOAN' | 'COLLECTIBLE' | 'OTHER'
+
+export type AccountScope = 'PERSONAL' | 'BUSINESS'
 
 export interface RealEstateMetadata {
   purchasePrice: number
@@ -28,6 +30,7 @@ export interface Account {
   id: number
   name: string
   type: AccountType
+  scope: AccountScope
   provider: string | null
   currency: string
   currentBalance: number
@@ -44,6 +47,7 @@ export interface Account {
 export interface AccountRequest {
   name: string
   type: AccountType
+  scope?: AccountScope
   provider?: string
   currency: string
   currentBalance?: number
@@ -162,6 +166,7 @@ export interface DashboardData {
     balanceEur: number
     percentage: number
     accountType: string
+    scope: AccountScope
     hasHoldings: boolean
   }[]
   liabilities: {
@@ -171,6 +176,7 @@ export interface DashboardData {
     balanceEur: number
     percentage: number
     accountType: string
+    scope: AccountScope
     hasHoldings: boolean
   }[]
   goalSummaries: GoalProgress[]

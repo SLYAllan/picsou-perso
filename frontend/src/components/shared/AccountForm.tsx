@@ -26,7 +26,8 @@ import {
 
 const accountSchema = z.object({
   name: z.string().min(1).max(100),
-  type: z.enum(['LEP', 'PEA', 'COMPTE_TITRES', 'CRYPTO', 'CHECKING', 'SAVINGS', 'REAL_ESTATE', 'LOAN', 'OTHER']),
+  type: z.enum(['LEP', 'PEA', 'COMPTE_TITRES', 'CRYPTO', 'CHECKING', 'SAVINGS', 'REAL_ESTATE', 'LOAN', 'COLLECTIBLE', 'OTHER']),
+  scope: z.enum(['PERSONAL', 'BUSINESS']),
   provider: z.string().max(100).optional(),
   currency: z.string().min(1),
   currentBalance: z.number().min(0).optional(),
@@ -57,6 +58,7 @@ interface AccountFormProps {
 const EMPTY_DEFAULTS: AccountFormData = {
   name: '',
   type: 'CHECKING',
+  scope: 'PERSONAL',
   provider: '',
   currency: 'EUR',
   currentBalance: undefined,
@@ -143,6 +145,18 @@ export function AccountForm({ open, onOpenChange, onSubmit, defaultValues, title
                   {t(at.labelKey)}
                 </option>
               ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="scope">{t('accounts.scope.label')}</Label>
+            <select
+              id="scope"
+              {...register('scope')}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus:border-ring"
+            >
+              <option value="PERSONAL">{t('accounts.scope.PERSONAL')}</option>
+              <option value="BUSINESS">{t('accounts.scope.BUSINESS')}</option>
             </select>
           </div>
 

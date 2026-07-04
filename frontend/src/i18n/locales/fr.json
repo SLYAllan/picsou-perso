@@ -138,7 +138,14 @@
       "CHECKING": "Comptes courants",
       "CRYPTO": "Crypto",
       "REAL_ESTATE": "Immobilier",
-      "DEBTS": "Dettes"
+      "DEBTS": "Dettes",
+      "COLLECTION": "Collection"
+    },
+    "scope": {
+      "label": "Périmètre",
+      "ALL": "Tout",
+      "PERSONAL": "Perso",
+      "BUSINESS": "Pro"
     }
   },
   "accountTypes": {
@@ -150,7 +157,8 @@
     "crypto": "Crypto",
     "realEstate": "Immobilier",
     "loan": "Prêt",
-    "other": "Autre"
+    "other": "Autre",
+    "collectible": "Collection (TCG)"
   },
   "realEstate": {
     "purchasePrice": "Prix d'achat",
@@ -259,12 +267,31 @@
         "real_estate": "Immobilier"
       },
       "countryNames": {
-        "US": "États-Unis", "NL": "Pays-Bas", "CA": "Canada", "FR": "France",
-        "GB": "Royaume-Uni", "DE": "Allemagne", "CH": "Suisse", "IE": "Irlande",
-        "JP": "Japon", "CN": "Chine", "LU": "Luxembourg", "AU": "Australie",
-        "ES": "Espagne", "IT": "Italie", "SE": "Suède", "DK": "Danemark", "HK": "Hong Kong",
-        "KR": "Corée du Sud", "TW": "Taïwan", "IN": "Inde", "BR": "Brésil", "BE": "Belgique",
-        "FI": "Finlande", "NO": "Norvège", "SG": "Singapour"
+        "US": "États-Unis",
+        "NL": "Pays-Bas",
+        "CA": "Canada",
+        "FR": "France",
+        "GB": "Royaume-Uni",
+        "DE": "Allemagne",
+        "CH": "Suisse",
+        "IE": "Irlande",
+        "JP": "Japon",
+        "CN": "Chine",
+        "LU": "Luxembourg",
+        "AU": "Australie",
+        "ES": "Espagne",
+        "IT": "Italie",
+        "SE": "Suède",
+        "DK": "Danemark",
+        "HK": "Hong Kong",
+        "KR": "Corée du Sud",
+        "TW": "Taïwan",
+        "IN": "Inde",
+        "BR": "Brésil",
+        "BE": "Belgique",
+        "FI": "Finlande",
+        "NO": "Norvège",
+        "SG": "Singapour"
       }
     }
   },
@@ -596,16 +623,46 @@
     "revokeTitle": "Révoquer cette clé ?",
     "revokeDescription": "Tout client MCP utilisant cette clé perd l'accès immédiatement. Action irréversible.",
     "scopes": {
-      "accounts_read": { "label": "Comptes", "desc": "Voir les comptes, soldes, positions et historique" },
-      "transactions_read": { "label": "Transactions", "desc": "Voir les transactions" },
-      "goals_read": { "label": "Objectifs", "desc": "Voir les objectifs d'épargne" },
-      "dashboard_read": { "label": "Tableau de bord", "desc": "Voir le patrimoine, le tableau de bord et les +/- values" },
-      "prices_read": { "label": "Cours", "desc": "Consulter les cours des actifs" },
-      "family_read": { "label": "Famille", "desc": "Voir le tableau de bord familial partagé" },
-      "accounts_write": { "label": "Comptes", "desc": "Créer et modifier comptes manuels, soldes et positions" },
-      "transactions_write": { "label": "Transactions", "desc": "Ajouter, modifier et supprimer des transactions manuelles" },
-      "goals_write": { "label": "Objectifs", "desc": "Créer, modifier et supprimer objectifs et contributions" },
-      "sync_trigger": { "label": "Synchronisation", "desc": "Rafraîchir les connexions bancaires, crypto et courtier existantes" }
+      "accounts_read": {
+        "label": "Comptes",
+        "desc": "Voir les comptes, soldes, positions et historique"
+      },
+      "transactions_read": {
+        "label": "Transactions",
+        "desc": "Voir les transactions"
+      },
+      "goals_read": {
+        "label": "Objectifs",
+        "desc": "Voir les objectifs d'épargne"
+      },
+      "dashboard_read": {
+        "label": "Tableau de bord",
+        "desc": "Voir le patrimoine, le tableau de bord et les +/- values"
+      },
+      "prices_read": {
+        "label": "Cours",
+        "desc": "Consulter les cours des actifs"
+      },
+      "family_read": {
+        "label": "Famille",
+        "desc": "Voir le tableau de bord familial partagé"
+      },
+      "accounts_write": {
+        "label": "Comptes",
+        "desc": "Créer et modifier comptes manuels, soldes et positions"
+      },
+      "transactions_write": {
+        "label": "Transactions",
+        "desc": "Ajouter, modifier et supprimer des transactions manuelles"
+      },
+      "goals_write": {
+        "label": "Objectifs",
+        "desc": "Créer, modifier et supprimer objectifs et contributions"
+      },
+      "sync_trigger": {
+        "label": "Synchronisation",
+        "desc": "Rafraîchir les connexions bancaires, crypto et courtier existantes"
+      }
     }
   },
   "admin": {

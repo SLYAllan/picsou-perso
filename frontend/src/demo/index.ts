@@ -223,7 +223,7 @@ handlers.set(key('POST', '/sync/initiate'), () => ({
 
 // Sync - complete
 handlers.set(key('POST', '/sync/complete'), () => ([
-  { id: 100, name: 'Demo Bank Account', type: 'CHECKING' as const, provider: 'Demo Bank', currency: 'EUR', currentBalance: 5000, currentBalanceEur: 5000, lastSyncedAt: new Date().toISOString(), isManual: false, color: '#3b82f6', ticker: null, createdAt: new Date().toISOString() }
+  { id: 100, name: 'Demo Bank Account', type: 'CHECKING' as const, scope: 'PERSONAL' as const, provider: 'Demo Bank', currency: 'EUR', currentBalance: 5000, currentBalanceEur: 5000, lastSyncedAt: new Date().toISOString(), isManual: false, color: '#3b82f6', ticker: null, createdAt: new Date().toISOString() }
 ]))
 
 // Sync - retry
@@ -252,7 +252,7 @@ handlers.set(key('POST', '/tr/logout'), () => null)
 
 // Crypto exchange - add
 handlers.set(key('POST', '/crypto/exchange'), () => ({
-  id: Date.now(), name: 'Binance', type: 'CRYPTO' as const, provider: 'BINANCE', currency: 'USDT', currentBalance: 0, currentBalanceEur: 0, lastSyncedAt: null, isManual: false, color: '#f59e0b', ticker: null, createdAt: new Date().toISOString()
+  id: Date.now(), name: 'Binance', type: 'CRYPTO' as const, scope: 'PERSONAL' as const, provider: 'BINANCE', currency: 'USDT', currentBalance: 0, currentBalanceEur: 0, lastSyncedAt: null, isManual: false, color: '#f59e0b', ticker: null, createdAt: new Date().toISOString()
 }))
 
 // Crypto exchange - sync
@@ -263,7 +263,7 @@ handlers.set(key('DELETE', '/crypto/exchange/1'), () => null)
 
 // Crypto wallet - add
 handlers.set(key('POST', '/crypto/wallet'), () => ({
-  id: Date.now(), name: 'ETH Wallet', type: 'CRYPTO' as const, provider: null, currency: 'ETH', currentBalance: 0, currentBalanceEur: 0, lastSyncedAt: null, isManual: false, color: '#8b5cf6', ticker: 'ETH', createdAt: new Date().toISOString()
+  id: Date.now(), name: 'ETH Wallet', type: 'CRYPTO' as const, scope: 'PERSONAL' as const, provider: null, currency: 'ETH', currentBalance: 0, currentBalanceEur: 0, lastSyncedAt: null, isManual: false, color: '#8b5cf6', ticker: 'ETH', createdAt: new Date().toISOString()
 }))
 
 // Crypto wallet - sync

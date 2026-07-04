@@ -16,11 +16,13 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Plus, Wallet, Pencil, Trash2, TrendingUp, TrendingDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { Account, AccountRequest, AccountType } from '@/types/api'
+import type { Account, AccountRequest, AccountScope, AccountType } from '@/types/api'
 
-type AssetFilter = 'ALL' | 'STOCKS' | 'METALS' | 'SAVINGS' | 'CHECKING' | 'CRYPTO' | 'REAL_ESTATE' | 'DEBTS'
+type AssetFilter = 'ALL' | 'STOCKS' | 'METALS' | 'SAVINGS' | 'CHECKING' | 'CRYPTO' | 'REAL_ESTATE' | 'COLLECTION' | 'DEBTS'
+type ScopeFilter = 'ALL' | AccountScope
 
-const FILTER_KEYS: AssetFilter[] = ['ALL', 'STOCKS', 'METALS', 'SAVINGS', 'CHECKING', 'CRYPTO', 'REAL_ESTATE', 'DEBTS']
+const FILTER_KEYS: AssetFilter[] = ['ALL', 'STOCKS', 'METALS', 'SAVINGS', 'CHECKING', 'CRYPTO', 'REAL_ESTATE', 'COLLECTION', 'DEBTS']
+const SCOPE_KEYS: ScopeFilter[] = ['ALL', 'PERSONAL', 'BUSINESS']
 
 const ASSET_FILTER_MAP: Record<AssetFilter, AccountType[] | null> = {
   ALL: null,
@@ -30,6 +32,7 @@ const ASSET_FILTER_MAP: Record<AssetFilter, AccountType[] | null> = {
   CHECKING: ['CHECKING'],
   CRYPTO: ['CRYPTO'],
   REAL_ESTATE: ['REAL_ESTATE'],
+  COLLECTION: ['COLLECTIBLE'],
   DEBTS: ['LOAN'],
 }
 
@@ -40,6 +43,7 @@ const TYPE_GROUP_META: Record<string, { key: string; labelKey: string; color: st
   CHECKING:    { key: 'CHECKING',    labelKey: 'accounts.filters.CHECKING',    color: '#0ea5e9' },
   CRYPTO:      { key: 'CRYPTO',      labelKey: 'accounts.filters.CRYPTO',      color: '#f97316' },
   REAL_ESTATE: { key: 'REAL_ESTATE', labelKey: 'accounts.filters.REAL_ESTATE', color: '#a855f7' },
+  COLLECTION:  { key: 'COLLECTION',  labelKey: 'accounts.filters.COLLECTION',  color: '#f59e0b' },
   DEBTS:       { key: 'DEBTS',       labelKey: 'accounts.filters.DEBTS',       color: '#ef4444' },
 }
 
@@ -52,6 +56,7 @@ const TYPE_TO_GROUP: Record<AccountType, string> = {
   CHECKING: 'CHECKING',
   CRYPTO: 'CRYPTO',
   REAL_ESTATE: 'REAL_ESTATE',
+  COLLECTIBLE: 'COLLECTION',
   LOAN: 'DEBTS',
 }
 
@@ -60,6 +65,7 @@ const HOLDING_ACCOUNT_TYPES: AccountType[] = ['PEA', 'COMPTE_TITRES', 'CRYPTO']
 type AccountFormData = {
   name: string
   type: AccountType
+  scope: AccountScope
   provider?: string
   currency: string
   currentBalance?: number
@@ -89,6 +95,14 @@ export function AccountsPage() {
   const [editingAccount, setEditingAccount] = useState<Account | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [filter, setFilter] = useState<AssetFilter>('ALL')
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>('ALL')
+
+  // Perso/pro scoping applies before every other filter/aggregation on this page
+  const scopedAccounts = useMemo(() => {
+    if (!accounts) return undefined
+    if (scopeFilter === 'ALL') return accounts
+    return accounts.filter(a => a.scope === scopeFilter)
+  }, [accounts, scopeFilter])
 
   // All account IDs for history query (split mode for per-account breakdown)
   const allAccountIds = useMemo(() => (accounts ?? []).map(a => a.id), [accounts])
@@ -96,11 +110,11 @@ export function AccountsPage() {
 
   // Grid accounts: always individual, filtered by type
   const filteredAccounts = useMemo(() => {
-    if (!accounts) return []
+    if (!scopedAccounts) return []
     const types = ASSET_FILTER_MAP[filter]
-    if (!types) return accounts
-    return accounts.filter(a => types.includes(a.type))
-  }, [accounts, filter])
+    if (!types) return scopedAccounts
+    return scopedAccounts.filter(a => types.includes(a.type))
+  }, [scopedAccounts, filter])
 
   // Whether current filter contains investment accounts (for PnL display)
   const hasHoldings = filteredAccounts.some(a => HOLDING_ACCOUNT_TYPES.includes(a.type))
@@ -134,14 +148,15 @@ export function AccountsPage() {
 
   // Chart accounts: grouped by type when ALL, individual accounts otherwise
   const chartAccounts = useMemo(() => {
-    if (!accounts) return []
+    if (!scopedAccounts) return []
     if (filter !== 'ALL') {
-      return accounts.filter(a => ASSET_FILTER_MAP[filter]!.includes(a.type))
+      return scopedAccounts.filter(a => ASSET_FILTER_MAP[filter]!.includes(a.type))
     }
     return Object.values(TYPE_GROUP_META).map(meta => ({
       id: meta.key as unknown as number,
       name: t(meta.labelKey),
       type: 'OTHER' as AccountType,
+      scope: 'PERSONAL' as AccountScope,
       provider: null,
       currency: 'EUR',
       currentBalance: 0,
@@ -152,14 +167,14 @@ export function AccountsPage() {
       ticker: null,
       createdAt: '',
     }))
-  }, [accounts, filter, t])
+  }, [scopedAccounts, filter, t])
 
   // Chart PnL data from split history
   const chartPnlData = useMemo(() => {
-    if (!historyData || !accounts) return []
+    if (!historyData || !scopedAccounts) return []
 
     if (filter !== 'ALL') {
-      const ids = accounts
+      const ids = scopedAccounts
         .filter(a => ASSET_FILTER_MAP[filter]!.includes(a.type))
         .map(a => String(a.id))
 
@@ -177,7 +192,7 @@ export function AccountsPage() {
 
     // ALL → aggregate PnL per type group
     const groupIds: Record<string, Set<string>> = {}
-    for (const a of accounts) {
+    for (const a of scopedAccounts) {
       const group = TYPE_TO_GROUP[a.type]
       if (!groupIds[group]) groupIds[group] = new Set()
       groupIds[group].add(String(a.id))
@@ -197,7 +212,7 @@ export function AccountsPage() {
         }
         return row
       })
-  }, [historyData, accounts, filter])
+  }, [historyData, scopedAccounts, filter])
 
   function handleOpenCreate() {
     setShowCreateModal(true)
@@ -218,6 +233,7 @@ export function AccountsPage() {
     const request: AccountRequest = {
       name: data.name,
       type: data.type,
+      scope: data.scope,
       provider: data.provider || undefined,
       currency: data.currency,
       currentBalance: data.currentBalance,
@@ -257,6 +273,7 @@ export function AccountsPage() {
     return {
       name: editingAccount.name,
       type: editingAccount.type,
+      scope: editingAccount.scope,
       provider: (editingAccount.type === 'LOAN' ? debt?.lenderName : editingAccount.provider) ?? '',
       currency: editingAccount.currency,
       currentBalance: editingAccount.currentBalance,
@@ -306,6 +323,21 @@ export function AccountsPage() {
                 )}
               >
                 {t(`accounts.filters.${f}`)}
+              </button>
+            ))}
+            <span className="mx-1 h-4 w-px bg-border" />
+            {SCOPE_KEYS.map(s => (
+              <button
+                key={s}
+                onClick={() => setScopeFilter(s)}
+                className={cn(
+                  'inline-flex items-center justify-center rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
+                  scopeFilter === s
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                )}
+              >
+                {t(`accounts.scope.${s}`)}
               </button>
             ))}
           </div>

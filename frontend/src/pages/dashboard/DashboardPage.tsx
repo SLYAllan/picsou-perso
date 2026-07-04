@@ -40,46 +40,60 @@ import { todayLabel } from '@/lib/utils'
 import { GoalDetailModal } from '@/pages/goals/GoalDetailModal'
 
 type WealthMode = 'net' | 'gross' | 'financial'
+type ScopeFilter = 'ALL' | 'PERSONAL' | 'BUSINESS'
 
 const EXCLUDED_FINANCIAL = new Set(['CHECKING', 'LOAN'])
+const SCOPE_KEYS: ScopeFilter[] = ['ALL', 'PERSONAL', 'BUSINESS']
 
 export function DashboardPage() {
   const { t } = useTranslation()
   const [showSyncModal, setShowSyncModal] = useState(false)
   const [range, setRange] = useState<TimeRange>('1Y')
   const [wealthMode, setWealthMode] = useState<WealthMode>('net')
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>('ALL')
   const [detailGoalId, setDetailGoalId] = useState<number | null>(null)
 
   const { data, isLoading } = useDashboard(range)
 
+  // Perso/pro scoping applies before the wealth mode: headline, chart and pie all
+  // read from these filtered lists so a scope only ever sees its own accounts.
+  const distribution = useMemo(() => {
+    if (!data) return []
+    if (scopeFilter === 'ALL') return data.distribution
+    return data.distribution.filter(d => d.scope === scopeFilter)
+  }, [data, scopeFilter])
+  const liabilities = useMemo(() => {
+    if (!data) return []
+    if (scopeFilter === 'ALL') return data.liabilities
+    return data.liabilities.filter(l => l.scope === scopeFilter)
+  }, [data, scopeFilter])
+
   // Account IDs filtered by the selected wealth mode — drives both the headline value
   // and the history chart so the curve never includes categories the mode excludes.
   const chartAccountIds = useMemo(() => {
-    if (!data) return []
     switch (wealthMode) {
       case 'gross':
         // Assets only (no liabilities)
-        return data.distribution.map(d => d.accountId)
+        return distribution.map(d => d.accountId)
       case 'financial':
         // Financial assets: drop checking and any loan that slipped into distribution
-        return data.distribution
+        return distribution
           .filter(d => !EXCLUDED_FINANCIAL.has(d.accountType))
           .map(d => d.accountId)
       default:
         // Net worth: all accounts including liabilities
-        return [...data.distribution.map(d => d.accountId), ...data.liabilities.map(l => l.accountId)]
+        return [...distribution.map(d => d.accountId), ...liabilities.map(l => l.accountId)]
     }
-  }, [data, wealthMode])
+  }, [distribution, liabilities, wealthMode])
   // Accounts that actually have holdings/tickers — used for PnL only.
   // Mirrors the chart filter: in "financial" mode we still drop excluded categories
   // (in practice CHECKING/LOAN don't carry holdings, so this is a no-op safety net).
   const investmentAccountIds = useMemo(() => {
-    if (!data) return []
-    return data.distribution
+    return distribution
       .filter(d => d.hasHoldings)
       .filter(d => wealthMode !== 'financial' || !EXCLUDED_FINANCIAL.has(d.accountType))
       .map(d => d.accountId)
-  }, [data, wealthMode])
+  }, [distribution, wealthMode])
   const historyMonths = useMemo(() => {
     if (range === 'ALL') return 1200
     if (range === '3M') return 3
@@ -108,23 +122,28 @@ export function DashboardPage() {
 
   const { data: pnlData } = usePnl(investmentAccountIds, pnlFromDate)
 
-  // Compute wealth value based on selected mode
+  // Compute wealth value based on selected mode (over the scoped lists — the
+  // backend's totalNetWorth ignores the perso/pro filter, so recompute here)
   const wealthValue = useMemo(() => {
-    if (!data) return 0
-    const sumAccounts = (items: typeof data.distribution, exclude?: Set<string>) =>
+    const sumAccounts = (items: typeof distribution, exclude?: Set<string>) =>
       items
         .filter(d => !exclude || !exclude.has(d.accountType))
         .reduce((s, d) => s + d.balanceEur, 0)
 
     switch (wealthMode) {
       case 'gross':
-        return sumAccounts(data.distribution)
+        return sumAccounts(distribution)
       case 'financial':
-        return sumAccounts(data.distribution, EXCLUDED_FINANCIAL)
+        return sumAccounts(distribution, EXCLUDED_FINANCIAL)
       default:
-        return data.totalNetWorth
+        return sumAccounts(distribution) - liabilities.reduce((s, l) => s + l.balanceEur, 0)
     }
-  }, [data, wealthMode])
+  }, [distribution, liabilities, wealthMode])
+
+  const scopedLiabilitiesTotal = useMemo(
+    () => liabilities.reduce((s, l) => s + l.balanceEur, 0),
+    [liabilities]
+  )
 
   // PnL: use range fields when available, fall back to live PnL (ALL range)
   const pnl = pnlData?.rangePnl != null ? pnlData.rangePnl : (pnlData?.pnl ?? 0)
@@ -163,7 +182,7 @@ export function DashboardPage() {
       {/* Wealth hero */}
       <Card>
         <CardContent>
-          <div className="flex items-center">
+          <div className="flex items-center justify-between gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
@@ -183,20 +202,35 @@ export function DashboardPage() {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+            <div className="flex items-center gap-1">
+              {SCOPE_KEYS.map(s => (
+                <button
+                  key={s}
+                  onClick={() => setScopeFilter(s)}
+                  className={`inline-flex items-center justify-center rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                    scopeFilter === s
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  }`}
+                >
+                  {t(`accounts.scope.${s}`)}
+                </button>
+              ))}
+            </div>
           </div>
           <CurrencyDisplay value={wealthValue} className="text-4xl font-bold" />
 
-          {(data.totalLiabilities ?? 0) > 0 && wealthMode === 'net' && (
+          {scopedLiabilitiesTotal > 0 && wealthMode === 'net' && (
             <div className="mt-2 flex items-center gap-4 text-sm">
               <span className="text-muted-foreground">
                 {t('dashboard.totalAssets')}:
               </span>
-              <CurrencyDisplay value={data.totalNetWorth + (data.totalLiabilities ?? 0)} />
+              <CurrencyDisplay value={wealthValue + scopedLiabilitiesTotal} />
               <span className="text-red-500">-</span>
               <span className="text-muted-foreground">
                 {t('dashboard.totalLiabilities')}:
               </span>
-              <CurrencyDisplay value={data.totalLiabilities ?? 0} className="text-red-500" />
+              <CurrencyDisplay value={scopedLiabilitiesTotal} className="text-red-500" />
             </div>
           )}
 
@@ -230,7 +264,7 @@ export function DashboardPage() {
           </CardContent>
         </Card>
 
-        <DistributionPie data={data.distribution} />
+        <DistributionPie data={distribution} />
       </div>
 
       {/* Goals section */}
