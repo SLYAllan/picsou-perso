@@ -27,6 +27,11 @@ export const AccountDetailPage = lazy(() =>
     default: m.AccountDetailPage,
   }))
 )
+export const CollectionPage = lazy(() =>
+  import('@/pages/collection/CollectionPage').then((m) => ({
+    default: m.CollectionPage,
+  }))
+)
 export const GoalsPage = lazy(() =>
   import('@/pages/goals/GoalsPage').then((m) => ({ default: m.GoalsPage }))
 )

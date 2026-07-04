@@ -35,6 +35,8 @@
     "accounts.desc": "Balances & transactions",
     "goals": "Goals",
     "goals.desc": "Track your savings",
+    "collection": "Collection",
+    "collection.desc": "TCG cards & collectibles",
     "sync": "Sync",
     "settings": "Settings",
     "settings.desc": "Preferences & account",
@@ -1005,6 +1007,34 @@
       "cta": "Open my dashboard",
       "loginFallback": "Go to login",
       "loggingIn": "Logging you in..."
+    }
+  },
+  "collection": {
+    "title": "Collection",
+    "addCard": "Add a card",
+    "addCardDesc": "Search a card by game and set, then add it with its purchase price.",
+    "addToCollection": "Add to collection",
+    "game": "Game",
+    "set": "Set",
+    "searchCard": "Search a card...",
+    "noResults": "No cards found",
+    "allGames": "All",
+    "empty": "No cards in your collection yet",
+    "totalValue": "Collection value",
+    "invested": "Invested",
+    "marketPrice": "Market price",
+    "costBasis": "Cost basis",
+    "quantity": "Copies",
+    "avgBuyIn": "Avg. purchase price (€)",
+    "purchasePrice": "Purchase price / copy (€)",
+    "subtype": "Finish",
+    "removeCard": "Remove card",
+    "removeConfirm": "Remove this card from your collection? Its price history stays untouched.",
+    "subtypes": {
+      "N": "Normal",
+      "F": "Foil",
+      "H": "Holofoil",
+      "RH": "Reverse Holo"
     }
   }
 }

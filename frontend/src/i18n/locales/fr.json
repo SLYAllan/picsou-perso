@@ -35,6 +35,8 @@
     "accounts.desc": "Soldes & transactions",
     "goals": "Objectifs",
     "goals.desc": "Suivi de vos épargnes",
+    "collection": "Collection",
+    "collection.desc": "Cartes TCG & objets de collection",
     "sync": "Synchronisation",
     "settings": "Paramètres",
     "settings.desc": "Préférences & compte",
@@ -1005,6 +1007,34 @@
       "cta": "Ouvrir mon tableau de bord",
       "loginFallback": "Aller à la connexion",
       "loggingIn": "Connexion en cours..."
+    }
+  },
+  "collection": {
+    "title": "Collection",
+    "addCard": "Ajouter une carte",
+    "addCardDesc": "Cherche une carte par jeu et extension, puis ajoute-la avec son prix d’achat.",
+    "addToCollection": "Ajouter à la collection",
+    "game": "Jeu",
+    "set": "Extension",
+    "searchCard": "Chercher une carte...",
+    "noResults": "Aucune carte trouvée",
+    "allGames": "Tous",
+    "empty": "Aucune carte dans ta collection pour l’instant",
+    "totalValue": "Valeur de la collection",
+    "invested": "Investi",
+    "marketPrice": "Prix du marché",
+    "costBasis": "Prix de revient",
+    "quantity": "Exemplaires",
+    "avgBuyIn": "Prix d’achat moyen (€)",
+    "purchasePrice": "Prix d’achat / exemplaire (€)",
+    "subtype": "Finition",
+    "removeCard": "Retirer la carte",
+    "removeConfirm": "Retirer cette carte de ta collection ? Son historique de prix est conservé.",
+    "subtypes": {
+      "N": "Normale",
+      "F": "Foil",
+      "H": "Holofoil",
+      "RH": "Reverse Holo"
     }
   }
 }
