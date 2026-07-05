@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { proApi, type ProSaleRequest, type ProInvoiceRequest } from './api'
+import { proApi, type ProSaleRequest, type ProInvoiceRequest, type PokecalcExport } from './api'
 
 const STALE_TIME = 60 * 1000
 
@@ -57,6 +57,11 @@ export function useUpdateSale() {
 export function useDeleteSale() {
   const invalidate = useInvalidatePro()
   return useMutation({ mutationFn: (id: number) => proApi.deleteSale(id), onSuccess: invalidate })
+}
+
+export function useImportPokecalc() {
+  const invalidate = useInvalidatePro()
+  return useMutation({ mutationFn: (payload: PokecalcExport) => proApi.importData(payload), onSuccess: invalidate })
 }
 
 export function useDeclare() {

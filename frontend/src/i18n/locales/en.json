@@ -1111,7 +1111,10 @@
       "deleteConfirm": "This sale is removed from the register and recaps. Delete?",
       "importEmpty": "No usable rows in this file.",
       "importBadHeaders": "Unrecognized headers: at least a date and sale price column are required.",
-      "importDone": "{{count}} sales imported."
+      "importDone": "{{count}} sales imported.",
+      "importPokecalc": "Import pokecalc",
+      "pokecalcDone": "pokecalc import: {{sales}} sales, {{invoices}} invoices, {{declarations}} declarations.",
+      "pokecalcBadFile": "Unrecognized file — use the generated pokecalc-export.json."
     },
     "recap": {
       "ca": "Revenue",

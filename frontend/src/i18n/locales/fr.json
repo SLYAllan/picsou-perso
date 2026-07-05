@@ -1111,7 +1111,10 @@
       "deleteConfirm": "Cette vente disparaît du registre et des récaps. Supprimer ?",
       "importEmpty": "Aucune ligne exploitable dans ce fichier.",
       "importBadHeaders": "En-têtes non reconnus : il faut au minimum une colonne date et prix de vente.",
-      "importDone": "{{count}} ventes importées."
+      "importDone": "{{count}} ventes importées.",
+      "importPokecalc": "Import pokecalc",
+      "pokecalcDone": "Import pokecalc : {{sales}} ventes, {{invoices}} factures, {{declarations}} déclarations.",
+      "pokecalcBadFile": "Fichier non reconnu — utilise le pokecalc-export.json généré."
     },
     "recap": {
       "ca": "CA encaissé",

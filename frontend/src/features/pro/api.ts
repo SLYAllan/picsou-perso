@@ -129,6 +129,30 @@ export interface ProInvoiceRequest {
   notes?: string
 }
 
+// --- One-shot pokecalc import ---
+
+export interface PokecalcExport {
+  sales: ProSaleRequest[]
+  invoices: (Omit<ProInvoiceRequest, 'items'> & { invoiceNumber: string; items: InvoiceItem[]; subtotal?: number; total?: number })[]
+  declarations: {
+    year: number
+    month: number
+    totalCa: number
+    urssafAmount: number
+    cfpAmount: number
+    vflAmount: number
+    totalDue: number
+    declared: boolean
+    declaredAt: string | null
+  }[]
+}
+
+export interface ImportResult {
+  salesImported: number
+  invoicesImported: number
+  declarationsImported: number
+}
+
 // --- Simulations ---
 
 export interface ProSimulation {
@@ -172,6 +196,9 @@ export const proApi = {
   updateSimulation: (id: number, data: { simType: string; name: string; data: string }) =>
     api.put<ProSimulation>(`/pro/simulations/${id}`, data).then(r => r.data),
   deleteSimulation: (id: number) => api.delete(`/pro/simulations/${id}`).then(() => undefined),
+
+  importData: (payload: PokecalcExport) =>
+    api.post<ImportResult>('/pro/import', payload).then(r => r.data),
 
   jpyRate: () => api.get<{ jpyPerEur: number | null }>('/pro/fx/jpy').then(r => r.data.jpyPerEur),
 }

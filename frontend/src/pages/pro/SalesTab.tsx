@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useProSales, useCreateSale, useUpdateSale, useDeleteSale, useCreateSalesBulk } from '@/features/pro/hooks'
-import type { ProSale, ProSaleRequest } from '@/features/pro/api'
+import { useProSales, useCreateSale, useUpdateSale, useDeleteSale, useCreateSalesBulk, useImportPokecalc } from '@/features/pro/hooks'
+import type { PokecalcExport, ProSale, ProSaleRequest } from '@/features/pro/api'
 import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay'
 import { LoadingSkeleton } from '@/components/shared/LoadingSkeleton'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
@@ -76,6 +76,8 @@ export function SalesTab() {
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [importInfo, setImportInfo] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const pokecalcRef = useRef<HTMLInputElement>(null)
+  const importPokecalc = useImportPokecalc()
 
   const totals = useMemo(() => {
     const list = sales ?? []
@@ -129,6 +131,18 @@ export function SalesTab() {
     setImportInfo(t('pro.sales.importDone', { count: toImport.length }))
   }
 
+  async function importPokecalcFile(file: File) {
+    try {
+      const payload = JSON.parse(await file.text()) as PokecalcExport
+      const result = await importPokecalc.mutateAsync(payload)
+      setImportInfo(t('pro.sales.pokecalcDone', {
+        sales: result.salesImported, invoices: result.invoicesImported, declarations: result.declarationsImported,
+      }))
+    } catch {
+      setImportInfo(t('pro.sales.pokecalcBadFile'))
+    }
+  }
+
   if (isLoading) return <LoadingSkeleton />
 
   return (
@@ -148,6 +162,17 @@ export function SalesTab() {
           onChange={e => {
             const f = e.target.files?.[0]
             if (f) importCsv(f)
+            e.target.value = ''
+          }}
+        />
+        <Button variant="outline" size="sm" onClick={() => pokecalcRef.current?.click()} disabled={importPokecalc.isPending}>
+          <Upload className="size-4" />{t('pro.sales.importPokecalc')}
+        </Button>
+        <input
+          ref={pokecalcRef} type="file" accept=".json,application/json" className="hidden"
+          onChange={e => {
+            const f = e.target.files?.[0]
+            if (f) importPokecalcFile(f)
             e.target.value = ''
           }}
         />
