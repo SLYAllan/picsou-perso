@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn, parseAmount } from '@/lib/utils'
+import { extractErrorMessage } from '@/lib/errors'
 import { Download, Pencil, Plus, Trash2, Upload } from 'lucide-react'
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
@@ -124,7 +125,8 @@ export function SalesTab() {
           req[field] = parseAmount(raw) || 0
         }
       })
-      if (req.saleDate && req.salePrice > 0) toImport.push(req)
+      // Negative price = refund; only zero/absent amounts are skipped
+      if (req.saleDate && req.salePrice !== 0) toImport.push(req)
     }
     if (toImport.length === 0) { setImportInfo(t('pro.sales.importEmpty')); return }
     await bulkCreate.mutateAsync(toImport)
@@ -132,14 +134,21 @@ export function SalesTab() {
   }
 
   async function importPokecalcFile(file: File) {
+    let payload: PokecalcExport
     try {
-      const payload = JSON.parse(await file.text()) as PokecalcExport
+      payload = JSON.parse(await file.text()) as PokecalcExport
+    } catch {
+      setImportInfo(t('pro.sales.pokecalcBadFile'))
+      return
+    }
+    try {
       const result = await importPokecalc.mutateAsync(payload)
       setImportInfo(t('pro.sales.pokecalcDone', {
         sales: result.salesImported, invoices: result.invoicesImported, declarations: result.declarationsImported,
       }))
-    } catch {
-      setImportInfo(t('pro.sales.pokecalcBadFile'))
+    } catch (err) {
+      // Surface the real API error — a swallowed 400 looked like a bad file
+      setImportInfo(extractErrorMessage(err))
     }
   }
 
@@ -273,7 +282,8 @@ function SaleModalContent({ sale, onClose }: { sale: ProSale | null; onClose: ()
   const [notes, setNotes] = useState(sale?.notes ?? '')
 
   const pending = createSale.isPending || updateSale.isPending
-  const valid = saleDate !== '' && (parseAmount(salePrice) || 0) > 0
+  // Negative allowed (refund) — only an empty/zero amount blocks the save
+  const valid = saleDate !== '' && (parseAmount(salePrice) || 0) !== 0
 
   async function handleSubmit() {
     const data: ProSaleRequest = {

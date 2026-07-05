@@ -22,7 +22,8 @@ public final class ProDtos {
         @Size(max = 100) String reference,
         @Size(max = 30) String itemType,
         @Size(max = 30) String platform,
-        @NotNull @DecimalMin("0") BigDecimal salePrice,
+        // Negative = refund/credit note (present in the real pokecalc data)
+        @NotNull BigDecimal salePrice,
         @DecimalMin("0") BigDecimal purchasePrice,
         @DecimalMin("0") BigDecimal shippingCost,
         @DecimalMin("0") BigDecimal platformCommission,
