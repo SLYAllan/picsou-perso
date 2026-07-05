@@ -31,7 +31,7 @@ V{n}__description.sql
 - Double underscore before the description.
 - Description in snake_case.
 
-### Existing migrations (V1-V39)
+### Existing migrations (V1-V40)
 
 | File | Content |
 |------|---------|
@@ -70,6 +70,7 @@ V{n}__description.sql
 | `V37__access_keys.sql` | Access keys for the embedded MCP server |
 | `V38__scope_and_collectibles.sql` | `scope` (PERSONAL/BUSINESS) on `account`, `COLLECTIBLE` account type, `image_url` on `account_holding` |
 | `V39__budget_and_installments.sql` | `budget_category`, `budget_rule`, `installment_plan` |
+| `V40__pro_suite.sql` | `resale_sale`, `pro_invoice`, `urssaf_declaration`, `pro_setting`, `resale_simulation` (schema only — pokecalc data imported at runtime, see pro-suite.md) |
 
 Note: V8 and V33-V35 are absent by design (skipped — never rolled into another migration).
 

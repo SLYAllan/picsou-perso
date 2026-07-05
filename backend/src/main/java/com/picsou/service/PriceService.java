@@ -40,6 +40,14 @@ public class PriceService {
     }
 
     /**
+     * FX rate from {@code currency} to EUR (1 unit of currency in EUR).
+     * Delegates to Yahoo (15-minute cache there). Null when the fetch fails.
+     */
+    public BigDecimal getFxRateToEur(String currency) {
+        return yahoo.getFxRateToEur(currency);
+    }
+
+    /**
      * Returns EUR price for the given ticker.
      * Returns BigDecimal.ONE if ticker is "EUR" (no conversion needed).
      * Returns null if price unavailable.

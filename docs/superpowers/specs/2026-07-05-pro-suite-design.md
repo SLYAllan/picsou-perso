@@ -36,10 +36,12 @@ Une section « Pro » dans Picsou regroupant les trois modules de pokecalc :
 | `pro_setting` | clé/valeur par membre : taux (urssaf 12.3, cfp 0.1, vfl 1.0, seuil 188700, emballage 0.35) + réglages simulateur (JSON) |
 | `resale_simulation` | type cards/accessories, name, data (JSON texte : la simulation complète) |
 
-**Import one-shot des données pokecalc dans V40** : 90 ventes, 21 factures
-(compteur repart à 0024), 2 déclarations, réglages. Inserts en
-`INSERT … SELECT MIN(id) FROM family_member WHERE EXISTS(membre)` :
-sur une installation vierge (0 membre) la migration ne pose rien et ne casse pas.
+**Import one-shot des données pokecalc à l'exécution** (révisé pendant
+l'implémentation) : les factures contiennent des données personnelles clients
+et le repo est public → les données ne passent PAS par la migration/git.
+V40 = schéma seul ; un `pokecalc-export.json` généré localement est uploadé
+une fois via `POST /api/pro/import` (bouton « Import pokecalc », idempotent).
+Le compteur de factures repart à 0024 après import.
 
 ## API `/api/pro` (UserContext, mêmes conventions que budget)
 
