@@ -71,14 +71,31 @@ pokecalc kept them in localStorage. Platform/tax settings live in
 
 - The recap URSSAF block and the declared amounts use different assiettes
   (see above) — faithful to pokecalc, don't "fix" silently.
-- CSV import auto-maps headers (FR/EN synonyms in `SalesTab.tsx`); rows without
-  a parsable date + positive sale price are silently skipped.
+- CSV import lives in `features/pro/csv-import.ts` and handles two shapes: the
+  Cardmarket "Transaction Summary" export (detected on the `Category` + `Amount`
+  headers — one `Sales` row plus one `Fees` row per order, joined by `Reference`,
+  withdrawals dropped) and a generic file auto-mapped from FR/EN header synonyms,
+  including the snake_case headers our own `exportCsv` writes. Dates accept ISO,
+  `dd/mm/yyyy` and `dd.mm.yyyy hh:mm:ss`; amounts accept `18,60 €` and
+  `1.234,56 €`. Rows without a parsable date or with a zero amount are dropped;
+  negative amounts are kept (refunds). Re-importing the same statement skips
+  sales already in the register on (date, reference, price) — only when the
+  reference is non-empty, since two identical cards sold the same day are two
+  real sales.
 - Amounts are computed in doubles like the JS original — fine for the volumes,
   don't reuse this path for anything needing exact accounting.
 - `PriceService.getFxRateToEur` is a passthrough to Yahoo (15-min cache);
   the endpoint returns `{jpyPerEur: null}` when FX is down and the UI falls
   back to 162.
-- pokecalc's PDF statement import (`parse-pdf`) was NOT ported (CSV only).
+- Vinted receipts arrive as one PDF per sale (`features/pro/vinted-pdf.ts`), a
+  port of pokecalc's `parse-pdf` route + `parseVintedPdf`. pokecalc read the text
+  server-side with `pdf-parse`; here pdf.js runs in the browser (lazy import, own
+  chunk — same treatment as jsPDF for invoices) since Picsou's backend is Java.
+  Line-anchored regexes need real lines, so `pdfToText` regroups pdf.js's loose
+  glyph runs by their y coordinate. Same fields as pokecalc: one sale per item,
+  priced without the shipping and buyer protection the buyer pays on top, type
+  `carte`, packaging 0.35.
+- The import button takes several files at once, mixing CSV and PDF.
 
 ## Tests
 
@@ -88,6 +105,10 @@ pokecalc kept them in localStorage. Platform/tax settings live in
   totals + items JSON round-trip.
 - `features/pro/calculations.test.ts` — lot conversion, distributions,
   per-platform margin, best-platform summary.
+- `features/pro/csv-import.test.ts` — Cardmarket statement (fee/sale pairing,
+  withdrawals dropped), export round-trip with BOM, amount and date formats.
+- `features/pro/vinted-pdf.test.ts` — receipt with several items, fallback on the
+  total, non-Vinted PDF rejected.
 
 ## Links
 

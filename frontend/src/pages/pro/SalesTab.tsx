@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useProSales, useCreateSale, useUpdateSale, useDeleteSale, useCreateSalesBulk, useImportPokecalc } from '@/features/pro/hooks'
 import type { PokecalcExport, ProSale, ProSaleRequest } from '@/features/pro/api'
+import { parseSalesCsv } from '@/features/pro/csv-import'
 import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay'
 import { LoadingSkeleton } from '@/components/shared/LoadingSkeleton'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
@@ -21,53 +22,6 @@ import {
 const PLATFORMS = ['cardmarket', 'ebay', 'vinted', 'tiktokshop', 'autre']
 const TYPES = ['carte', 'scelle', 'accessoire', 'autre']
 
-// CSV header → sale field auto-mapping (FR/EN, pokecalc import page condensed)
-const HEADER_MAP: Record<string, keyof ProSaleRequest> = {
-  'date': 'saleDate',
-  'nom': 'name', 'name': 'name', 'article': 'name', 'article name': 'name', 'nom / article': 'name',
-  'reference': 'reference', 'référence': 'reference', 'order number': 'reference',
-  'type': 'itemType',
-  'plateforme': 'platform', 'platform': 'platform',
-  'prix de vente': 'salePrice', 'sale price': 'salePrice', 'prix': 'salePrice', 'price': 'salePrice',
-  "prix d'achat": 'purchasePrice', 'purchase price': 'purchasePrice',
-  'frais de port': 'shippingCost', 'shipping': 'shippingCost', 'shipping cost': 'shippingCost', 'port': 'shippingCost',
-  'commission plateforme': 'platformCommission', 'commission': 'platformCommission',
-  'frais emballage': 'packagingCost', 'emballage': 'packagingCost', 'packaging': 'packagingCost',
-  'notes': 'notes', 'acheteur': 'notes',
-}
-
-function parseCsv(text: string): string[][] {
-  const sep = text.includes(';') && !text.split('\n')[0].includes(',') ? ';' : ','
-  const rows: string[][] = []
-  let row: string[] = [], cur = '', inQuotes = false
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i]
-    if (inQuotes) {
-      if (c === '"' && text[i + 1] === '"') { cur += '"'; i++ }
-      else if (c === '"') inQuotes = false
-      else cur += c
-    } else if (c === '"') inQuotes = true
-    else if (c === sep) { row.push(cur); cur = '' }
-    else if (c === '\n' || c === '\r') {
-      if (c === '\r' && text[i + 1] === '\n') i++
-      row.push(cur); cur = ''
-      if (row.some(v => v.trim() !== '')) rows.push(row)
-      row = []
-    } else cur += c
-  }
-  row.push(cur)
-  if (row.some(v => v.trim() !== '')) rows.push(row)
-  return rows
-}
-
-function toIsoDate(raw: string): string {
-  const s = raw.trim()
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
-  const fr = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/)
-  if (fr) return `${fr[3]}-${fr[2].padStart(2, '0')}-${fr[1].padStart(2, '0')}`
-  return s
-}
-
 export function SalesTab() {
   const { t } = useTranslation()
   const { data: sales, isLoading } = useProSales()
@@ -76,6 +30,7 @@ export function SalesTab() {
   const [editSale, setEditSale] = useState<ProSale | 'new' | null>(null)
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [importInfo, setImportInfo] = useState<string | null>(null)
+  const [parsing, setParsing] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const pokecalcRef = useRef<HTMLInputElement>(null)
   const importPokecalc = useImportPokecalc()
@@ -103,34 +58,63 @@ export function SalesTab() {
     URL.revokeObjectURL(a.href)
   }
 
-  async function importCsv(file: File) {
-    const rows = parseCsv(await file.text())
-    if (rows.length < 2) { setImportInfo(t('pro.sales.importEmpty')); return }
-    const headers = rows[0].map(h => h.trim().toLowerCase())
-    const mapping = headers.map(h => HEADER_MAP[h] ?? null)
-    if (!mapping.includes('saleDate') || !mapping.includes('salePrice')) {
-      setImportInfo(t('pro.sales.importBadHeaders'))
-      return
+  /** Reads one file: a Vinted receipt (PDF) or a sales CSV. Null on a file we can't read. */
+  async function readFile(file: File): Promise<ProSaleRequest[] | null> {
+    if (file.name.toLowerCase().endsWith('.pdf')) {
+      const { pdfToText, parseVintedPdf } = await import('@/features/pro/vinted-pdf')
+      const parsed = parseVintedPdf(await pdfToText(file))
+      if (parsed.length === 0) {
+        setImportInfo(t('pro.sales.importBadPdf', { file: file.name }))
+        return null
+      }
+      return parsed
     }
-    const toImport: ProSaleRequest[] = []
-    for (const row of rows.slice(1)) {
-      const req: ProSaleRequest = { saleDate: '', salePrice: 0 }
-      mapping.forEach((field, i) => {
-        if (!field || row[i] === undefined) return
-        const raw = row[i].trim()
-        if (field === 'saleDate') req.saleDate = toIsoDate(raw)
-        else if (field === 'name' || field === 'reference' || field === 'itemType' || field === 'platform' || field === 'notes') {
-          req[field] = raw
-        } else {
-          req[field] = parseAmount(raw) || 0
-        }
-      })
-      // Negative price = refund; only zero/absent amounts are skipped
-      if (req.saleDate && req.salePrice !== 0) toImport.push(req)
+    const parsed = parseSalesCsv(await file.text())
+    if (!parsed.ok) {
+      setImportInfo(t(parsed.reason === 'headers' ? 'pro.sales.importBadHeaders' : 'pro.sales.importEmpty'))
+      return null
     }
-    if (toImport.length === 0) { setImportInfo(t('pro.sales.importEmpty')); return }
-    await bulkCreate.mutateAsync(toImport)
-    setImportInfo(t('pro.sales.importDone', { count: toImport.length }))
+    return parsed.sales
+  }
+
+  async function importFiles(files: File[]) {
+    setImportInfo(null)
+    setParsing(true)
+    try {
+      const found: ProSaleRequest[] = []
+      for (const file of files) {
+        const parsed = await readFile(file).catch(err => {
+          setImportInfo(extractErrorMessage(err))
+          return null
+        })
+        if (!parsed) return
+        found.push(...parsed)
+      }
+      if (found.length === 0) { setImportInfo(t('pro.sales.importEmpty')); return }
+
+      // Re-importing the same statement is normal — skip rows already in the register.
+      // Only on a real reference: two identical cards sold the same day are distinct sales.
+      const known = new Set((sales ?? []).filter(s => s.reference)
+        .map(s => `${s.saleDate}|${s.reference}|${s.salePrice}`))
+      const toImport = found.filter(
+        s => !s.reference || !known.has(`${s.saleDate}|${s.reference}|${s.salePrice}`))
+      const skipped = found.length - toImport.length
+      if (toImport.length === 0) {
+        setImportInfo(t('pro.sales.importAllDuplicates', { count: skipped }))
+        return
+      }
+      try {
+        await bulkCreate.mutateAsync(toImport)
+      } catch (err) {
+        // Surface the real API error — a swallowed 400 looked like nothing happening
+        setImportInfo(extractErrorMessage(err))
+        return
+      }
+      setImportInfo(t('pro.sales.importDone', { count: toImport.length })
+        + (skipped > 0 ? ' ' + t('pro.sales.importSkipped', { count: skipped }) : ''))
+    } finally {
+      setParsing(false)
+    }
   }
 
   async function importPokecalcFile(file: File) {
@@ -163,14 +147,14 @@ export function SalesTab() {
         <Button variant="outline" size="sm" onClick={exportCsv} disabled={(sales ?? []).length === 0}>
           <Download className="size-4" />{t('pro.sales.exportCsv')}
         </Button>
-        <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={bulkCreate.isPending}>
-          <Upload className="size-4" />{t('pro.sales.importCsv')}
+        <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={bulkCreate.isPending || parsing}>
+          <Upload className="size-4" />{parsing ? t('pro.sales.importParsing') : t('pro.sales.importCsv')}
         </Button>
         <input
-          ref={fileRef} type="file" accept=".csv,text/csv" className="hidden"
+          ref={fileRef} type="file" accept=".csv,text/csv,.pdf,application/pdf" multiple className="hidden"
           onChange={e => {
-            const f = e.target.files?.[0]
-            if (f) importCsv(f)
+            const files = Array.from(e.target.files ?? [])
+            if (files.length > 0) importFiles(files)
             e.target.value = ''
           }}
         />
