@@ -61,7 +61,10 @@ export function parseVintedPdf(text: string): ProSaleRequest[] {
   const commission = euro(/Protection acheteurs[\s\S]*?(\d+[.,]\d{2})\s*€/i)
   const total = euro(/Total\s*:?\s*(\d+[.,]\d{2})\s*€/i)
 
-  const commandeIdx = text.search(/Commande/i)
+  // Case-sensitive on purpose: the table header is "Commande Code de retour Prix",
+  // while the title line "Formulaire de retour de commande" is lowercase — matching
+  // it would stretch the item section over the address block.
+  const commandeIdx = text.indexOf('Commande')
   const fraisIdx = text.search(/Frais de port/i)
   if (commandeIdx < 0 || fraisIdx < 0) return []
 

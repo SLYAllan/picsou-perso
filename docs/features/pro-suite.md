@@ -124,8 +124,10 @@ pokecalc kept them in localStorage. Platform/tax settings live in
   columns), export round-trip with BOM, amount and date formats. The eBay
   fixture keeps the real 38-column layout with buyer names and item titles
   replaced — this repo is public.
-- `features/pro/vinted-pdf.test.ts` — receipt with several items, fallback on the
-  total, non-Vinted PDF rejected.
+- `features/pro/vinted-pdf.test.ts` — real receipt layout with several items,
+  address block excluded, fallback on the total, non-Vinted PDF rejected.
+  Checked against 42 real receipts: 89 sales, no silent failure. The six other
+  Vinted PDFs (shipping slips, Wise statements) yield nothing, as they should.
 
 ## Links
 
