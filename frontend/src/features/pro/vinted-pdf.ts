@@ -9,8 +9,11 @@ import { DEFAULT_PACKAGING } from './csv-import'
  */
 export async function pdfToText(file: File): Promise<string> {
   const pdfjs = await import('pdfjs-dist')
-  const worker = await import('pdfjs-dist/build/pdf.worker.min.mjs?url')
-  pdfjs.GlobalWorkerOptions.workerSrc = worker.default
+  // Bundled through Vite's ?worker rather than served as-is: pdf.js ships its worker
+  // as a .mjs, an extension nginx has no MIME type for, so it arrived as
+  // application/octet-stream and nosniff refused to run it.
+  const PdfWorker = (await import('pdfjs-dist/build/pdf.worker.min.mjs?worker')).default
+  pdfjs.GlobalWorkerOptions.workerPort = new PdfWorker()
 
   const task = pdfjs.getDocument({ data: await file.arrayBuffer() })
   const doc = await task.promise

@@ -58,12 +58,33 @@ export function parseCsvAmount(raw: string | undefined): number {
   return parseFloat(`${s.slice(0, dec).replace(/[.,]/g, '')}.${s.slice(dec + 1)}`) || 0
 }
 
-/** Accepts ISO, dd/mm/yyyy and Cardmarket's dd.mm.yyyy (with or without a time part). */
+const FRENCH_MONTHS: Record<string, string> = {
+  janv: '01', jan: '01', janvier: '01',
+  fevr: '02', févr: '02', fev: '02', février: '02', fevrier: '02',
+  mars: '03', mar: '03',
+  avr: '04', avril: '04',
+  mai: '05',
+  juin: '06',
+  juil: '07', juillet: '07',
+  aout: '08', août: '08',
+  sept: '09', septembre: '09',
+  oct: '10', octobre: '10',
+  nov: '11', novembre: '11',
+  dec: '12', déc: '12', decembre: '12', décembre: '12',
+}
+
+/**
+ * Accepts ISO, dd/mm/yyyy, Cardmarket's dd.mm.yyyy and eBay's "30 juil. 2026",
+ * with or without a time part.
+ */
 export function toIsoDate(raw: string): string {
   const s = (raw ?? '').trim()
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
   const dmy = s.match(/^(\d{1,2})[/.](\d{1,2})[/.](\d{4})/)
   if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`
+  const fr = s.match(/^(\d{1,2})\s+(\S+?)\.?\s+(\d{4})/)
+  const month = fr && FRENCH_MONTHS[fr[2].toLowerCase().replace('.', '')]
+  if (fr && month) return `${fr[3]}-${month}-${fr[1].padStart(2, '0')}`
   return s
 }
 
@@ -109,6 +130,69 @@ function parseCardmarket(rows: string[][], head: string[]): ProSaleRequest[] {
     })
 }
 
+/**
+ * eBay's transaction report opens with a dozen lines of notes and a comma-separated
+ * `--,--,--` filler row, which would fool both the header lookup and the separator
+ * detection. Drop everything above the real header. No-op on any other file.
+ */
+function stripEbayMetadata(text: string): string {
+  const lines = text.split(/\r?\n/)
+  const start = lines.findIndex(l =>
+    l.includes('Date de création de la transaction') || l.includes('Transaction creation date'))
+  return start < 0 ? text : lines.slice(start).join('\n')
+}
+
+/**
+ * eBay transaction report: one row per item, plus payout and adjustment rows that
+ * carry no item title. Fees are spread over four columns. Refunded orders are
+ * dropped whole — pokecalc did the same.
+ */
+function parseEbay(rows: string[][], head: string[]): ProSaleRequest[] {
+  const at = (name: string) => head.indexOf(name.toLowerCase())
+  const iDate = at('Date de création de la transaction')
+  const iType = at('Type')
+  const iOrder = at('Numéro de commande')
+  const iBuyer = at("Pseudo de l'acheteur")
+  const iTitle = at("Titre de l'objet")
+  const iSubtotal = at("Sous-total de l'objet")
+  const iShipping = at('Livraison et expédition')
+  const feeCols = [
+    at('Commission sur le prix final - fixe'),
+    at('Commission sur le prix final - variable'),
+    at("Frais d'exploitation réglementaires"),
+    at('Frais de transactions internationales'),
+  ].filter(i => i >= 0)
+
+  const refunded = new Set(rows.slice(1)
+    .filter(r => r[iType]?.trim() === 'Remboursement')
+    .map(r => r[iOrder]?.trim()))
+
+  const sales: ProSaleRequest[] = []
+  for (const r of rows.slice(1)) {
+    if (r[iType]?.trim() !== 'Commande') continue
+    const title = r[iTitle]?.trim() ?? ''
+    if (!title || title === '--') continue
+    const ref = r[iOrder]?.trim() ?? ''
+    if (refunded.has(ref)) continue
+    const buyer = r[iBuyer]?.trim() ?? ''
+    sales.push({
+      saleDate: toIsoDate(r[iDate] ?? ''),
+      name: title,
+      reference: ref,
+      itemType: 'carte',
+      platform: 'ebay',
+      salePrice: parseCsvAmount(r[iSubtotal]),
+      purchasePrice: 0,
+      shippingCost: parseCsvAmount(r[iShipping]),
+      platformCommission: Number(
+        feeCols.reduce((sum, i) => sum + Math.abs(parseCsvAmount(r[i])), 0).toFixed(2)),
+      packagingCost: DEFAULT_PACKAGING,
+      notes: buyer === '--' ? '' : buyer,
+    })
+  }
+  return sales
+}
+
 function parseGeneric(rows: string[][], head: string[]): CsvImportResult {
   const mapping = head.map(h => HEADER_MAP[h] ?? null)
   if (!mapping.includes('saleDate') || !mapping.includes('salePrice')) {
@@ -130,15 +214,17 @@ function parseGeneric(rows: string[][], head: string[]): CsvImportResult {
   return { ok: true, sales }
 }
 
-/** Parses a sales CSV — Cardmarket statement or generic/our own export. */
+/** Parses a sales CSV — Cardmarket statement, eBay report, or generic/our own export. */
 export function parseSalesCsv(text: string): CsvImportResult {
-  const rows = parseCsv(text)
+  const rows = parseCsv(stripEbayMetadata(text))
   if (rows.length < 2) return { ok: false, reason: 'empty' }
   const head = rows[0].map(h => h.trim().toLowerCase())
 
   const result = head.includes('category') && head.includes('amount')
     ? { ok: true as const, sales: parseCardmarket(rows, head) }
-    : parseGeneric(rows, head)
+    : head.includes('date de création de la transaction') || head.includes('transaction creation date')
+      ? { ok: true as const, sales: parseEbay(rows, head) }
+      : parseGeneric(rows, head)
 
   if (!result.ok) return result
   // Negative price = refund; only rows without a date or a zero amount are dropped

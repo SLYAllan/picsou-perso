@@ -71,17 +71,26 @@ pokecalc kept them in localStorage. Platform/tax settings live in
 
 - The recap URSSAF block and the declared amounts use different assiettes
   (see above) — faithful to pokecalc, don't "fix" silently.
-- CSV import lives in `features/pro/csv-import.ts` and handles two shapes: the
-  Cardmarket "Transaction Summary" export (detected on the `Category` + `Amount`
-  headers — one `Sales` row plus one `Fees` row per order, joined by `Reference`,
-  withdrawals dropped) and a generic file auto-mapped from FR/EN header synonyms,
-  including the snake_case headers our own `exportCsv` writes. Dates accept ISO,
-  `dd/mm/yyyy` and `dd.mm.yyyy hh:mm:ss`; amounts accept `18,60 €` and
-  `1.234,56 €`. Rows without a parsable date or with a zero amount are dropped;
-  negative amounts are kept (refunds). Re-importing the same statement skips
-  sales already in the register on (date, reference, price) — only when the
-  reference is non-empty, since two identical cards sold the same day are two
-  real sales.
+- CSV import lives in `features/pro/csv-import.ts` and handles three shapes,
+  ported from pokecalc's import page:
+  - Cardmarket "Transaction Summary" (detected on the `Category` + `Amount`
+    headers): one `Sales` row plus one `Fees` row per order, joined by
+    `Reference`, withdrawals dropped.
+  - eBay "Rapport sur les transactions": eleven lines of notes above the real
+    header, including a comma-separated `--,--,--` filler row that would fool
+    both the header lookup and the separator detection — `stripEbayMetadata`
+    drops everything above `Date de création de la transaction`. One row per
+    item; payout and adjustment rows carry no title and are skipped, refunded
+    orders are dropped whole, and the commission sums four fee columns.
+  - anything else: auto-mapped from FR/EN header synonyms, including the
+    snake_case headers our own `exportCsv` writes.
+
+  Dates accept ISO, `dd/mm/yyyy`, `dd.mm.yyyy hh:mm:ss` and eBay's
+  `30 juil. 2026`; amounts accept `18,60 €` and `1.234,56 €`. Rows without a
+  parsable date or with a zero amount are dropped; negative amounts are kept
+  (refunds). Re-importing the same statement skips sales already in the register
+  on (date, reference, price) — only when the reference is non-empty, since two
+  identical cards sold the same day are two real sales.
 - Amounts are computed in doubles like the JS original — fine for the volumes,
   don't reuse this path for anything needing exact accounting.
 - `PriceService.getFxRateToEur` is a passthrough to Yahoo (15-min cache);
@@ -95,6 +104,11 @@ pokecalc kept them in localStorage. Platform/tax settings live in
   glyph runs by their y coordinate. Same fields as pokecalc: one sale per item,
   priced without the shipping and buyer protection the buyer pays on top, type
   `carte`, packaging 0.35.
+- pdf.js's worker goes through Vite's `?worker` rather than `?url`: it ships as a
+  `.mjs`, an extension nginx has no MIME type for, so in production it arrived as
+  `application/octet-stream` and `nosniff` refused to run it ("Setting up fake
+  worker failed"). Keep it bundled — the deployed host's nginx is outside this
+  repo, so we can't add the MIME type there.
 - The import button takes several files at once, mixing CSV and PDF.
 
 ## Tests
@@ -106,7 +120,10 @@ pokecalc kept them in localStorage. Platform/tax settings live in
 - `features/pro/calculations.test.ts` — lot conversion, distributions,
   per-platform margin, best-platform summary.
 - `features/pro/csv-import.test.ts` — Cardmarket statement (fee/sale pairing,
-  withdrawals dropped), export round-trip with BOM, amount and date formats.
+  withdrawals dropped), eBay report (notes preamble, payout rows, refunds, fee
+  columns), export round-trip with BOM, amount and date formats. The eBay
+  fixture keeps the real 38-column layout with buyer names and item titles
+  replaced — this repo is public.
 - `features/pro/vinted-pdf.test.ts` — receipt with several items, fallback on the
   total, non-Vinted PDF rejected.
 
